@@ -1,0 +1,10 @@
+.osp
+.idea
+vendor
+app/config/database.php
+app/log/
+.vs
+composer.phar
+.env
+logs
+composer.lock

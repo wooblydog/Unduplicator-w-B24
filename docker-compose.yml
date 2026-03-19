@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  php:
+    build: .
+    ports:
+      - "8089:80"
+    volumes:
+      - .:/var/www/html
+      - ./logs:/var/www/html/logs
+    restart: unless-stopped
