@@ -4,5 +4,10 @@ namespace App\Rules;
 
 interface LeadRuleInterface
 {
-    public function applies(array $lead, array $newLead): bool;
+    /**
+     * @param object|array $oldLead  старый лид (дубликат)
+     * @param object|array $newLead  новый лид (триггерный)
+     * @return bool
+     */
+    public function preferOldLead(object|array $oldLead, object|array $newLead): bool;
 }

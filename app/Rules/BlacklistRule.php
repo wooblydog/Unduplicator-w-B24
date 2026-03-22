@@ -2,29 +2,15 @@
 
 namespace App\Rules;
 
-use App\Factories\LoggerFactory;
-use App\Rules\LeadRuleInterface;
+use App\Services\Logger;
 
 class BlacklistRule implements LeadRuleInterface
 {
     private int $blacklistStatusId = 29;
-    private \Monolog\Logger $logger;
 
-    public function __construct()
+    public function preferOldLead(object|array $oldLead, object|array $newLead): bool
     {
-        $this->logger = LoggerFactory::create(session_id());
-    }
-
-    public function applies(array $lead, array $newLead): bool
-    {
-        $result = ($lead['STATUS_ID'] ?? null) == $this->blacklistStatusId;
-
-        $this->logger->notice('Проверка правила BlacklistRule', [
-            'leadId' => $lead['ID'] ?? null,
-            'statusId' => $lead['STATUS_ID'] ?? null,
-            'applies' => $result
-        ]);
-
+        $result = ($oldLead['STATUS_ID'] ?? null) == $this->blacklistStatusId;
         return $result;
     }
 }

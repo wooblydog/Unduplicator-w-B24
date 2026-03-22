@@ -2,28 +2,22 @@
 
 namespace App\Services;
 
-use App\Factories\LoggerFactory;
-
 class PhoneFormatter
 {
-    private static \Monolog\Logger $logger;
+    private Logger $logger;
 
-    private static function initLogger(): void
+    public function __construct()
     {
-        if (!isset(self::$logger)) {
-            self::$logger = LoggerFactory::create(session_id());
-        }
+        $this->logger = new Logger();
     }
 
-    public static function format(?string $phone): int
+    //TODO сделать статику
+    public function format(?string $phone): int
     {
-        self::initLogger();
-
         $digits = preg_replace('/\D+/', '', $phone);
 
         if ($digits === null || $digits === '') {
-            self::$logger->error('Некорректный номер телефона', ['phone' => $phone]);
-            throw new \InvalidArgumentException("Некорректный номер телефона: {$phone}");
+            $this->logger->error('Некорректный номер телефона', ['phone' => $phone]);
         }
 
         if ($digits[0] === '8') {
@@ -34,8 +28,6 @@ class PhoneFormatter
             $digits = '7' . $digits;
         }
 
-        self::$logger->notice('Телефон отформатирован', ['original' => $phone, 'formatted' => $digits]);
-
-        return (int)$digits;
+        return $digits;
     }
 }

@@ -2,40 +2,27 @@
 
 namespace App\Services\Lead;
 
-use App\Factories\LoggerFactory;
+use App\Services\Logger;
 
 class LeadSelector
 {
     private array $rules;
-    private \Monolog\Logger $logger;
+    private Logger $logger;
 
-    public function __construct(array $rules)
+    public function __construct()
     {
-        $this->rules = $rules;
-        $this->logger = LoggerFactory::create(session_id());
+        $this->logger = new Logger();
     }
 
-    public function chooseMainLead(array $leads, array $newLead): array
+    public function setRules(array $rules): void
     {
-        $this->logger->notice('Начало выбора основного лида', ['newLeadId' => $newLead['ID']]);
+        $this->rules = $rules;
+    }
 
-        if (count($leads) === 1) {
-            $this->logger->notice('Дублей нет, завершаем процесс', ['leadId' => $newLead['ID']]);
-            die('Дублей нет, завершение программы.');
-        }
-
-        $leads = $this->filterOldConvertedLeads($leads);
-
-        if (count($leads) === 1) {
-            $this->logger->notice('Дублей нет, завершаем процесс', ['leadId' => $newLead['ID']]);
-            die('Дублей нет, завершение программы.');
-        }
-
+    public function chooseMainLead1(array $leads, object $newLead): array
+    {
         $mainLead = $newLead;
-
         foreach ($leads as $lead) {
-            if ($lead['ID'] === $newLead['ID']) continue;
-
             foreach ($this->rules as $rule) {
                 if ($rule->applies($lead, $newLead)) {
                     $mainLead = $lead;
@@ -56,29 +43,29 @@ class LeadSelector
         ];
     }
 
-    private function filterOldConvertedLeads(array $leads): array
+    public function chooseMainLead(array $duplicates, $newLead): array
     {
-        $this->logger->notice('Поиск качественных лидов, старше двух недель.', ['leads' => $leads]);
-        $twoWeeks = 60 * 60 * 24 * 14;
-        $field = 'UF_CRM_1668339568358';
+        $mainLead = $newLead;
+        $mergeTarget = $newLead;
 
-        $filtered = array_filter($leads, function ($lead) use ($twoWeeks, $field) {
-            $status = $lead['STATUS_ID'] ?? null;
-
-            if ($status !== 'CONVERTED') {
-                return true;
+        foreach ($duplicates as $oldLead) {
+            foreach ($this->rules as $rule) {
+                if ($rule->preferOldLead($oldLead, $newLead)) {
+                    $mainLead = $oldLead;
+                    $mergeTarget = $oldLead;
+                    break 2;
+                }
             }
+        }
 
-            $date = $lead[$field] ?? null;
-            if ($date === null || $date === '' || $date === false) {
-                return false;
-            }
+        $toMerge = array_filter($duplicates, fn($l) => $l->ID !== $mergeTarget->ID);
+        if ($mainLead->ID !== $newLead->ID) {
+            $toMerge[] = $newLead;
+        }
 
-            return (time() - strtotime($date)) <= $twoWeeks;
-        });
-
-        $this->logger->notice('Список отфильтрованных лидов', ['leads' => $filtered]);
-
-        return array_values($filtered);
+        return [
+            'mainLead'      => $mergeTarget,
+            'leadsToMerge' => array_values($toMerge),
+        ];
     }
 }
