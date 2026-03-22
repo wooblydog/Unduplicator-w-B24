@@ -30,25 +30,3 @@ function pageDebug($die = true, ...$vars)
         pageDebug(false, ...$vars);
     }
 
-    function tgDebug($pretty = true, ...$vars): void
-    {
-        $json = json_encode($vars, JSON_UNESCAPED_UNICODE | ($pretty ? JSON_PRETTY_PRINT : 0));
-        $text = "<pre>" . htmlspecialchars($json, ENT_QUOTES) . "</pre>";
-
-        $params = [
-            'chat_id' => -1002115190876,
-            'text' => $text,
-            'parse_mode' => 'HTML',
-        ];
-        $ch = curl_init('https://api.telegram.org/bot7055483414:AAE6Ck2F8fRBZ0baNEXuhg677fjwlY0S7ME/sendMessage');
-        curl_setopt_array($ch, [
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => $params,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_SSL_VERIFYPEER => false,
-        ]);
-
-        curl_exec($ch);
-        curl_close($ch);
-    }
-
