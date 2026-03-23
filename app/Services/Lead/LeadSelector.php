@@ -63,9 +63,12 @@ class LeadSelector
             $toMerge[] = $newLead;
         }
 
+        $duplicateIDs = array_merge([$mainLead->ID], array_column($toMerge, 'ID'));
+
         return [
             'mainLead'      => $mergeTarget,
             'leadsToMerge' => array_values($toMerge),
+            'duplicateIds' => $duplicateIDs,
         ];
     }
 }

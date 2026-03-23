@@ -3,6 +3,16 @@ namespace App\Services;
 
 class Bitrix24
 {
+    private const ENTITY = [
+        "LEAD" => 1, // лид
+        "DEAL" => 2, // сделка
+        "CONTACT" => 3, // контакт
+        "COMPANY" => 4, // компания
+        "QUOTE" => 7, // предложение
+        "INVOICE" =>   31, // счет
+        "ETC" => 128, // смарт-процесс. Идентификатор конкретного смарт-процесса можно узнать методами crm.enum.ownertype и crm.type.list
+    ];
+
     private $id;
     private $hash;
     private $domain;
@@ -345,6 +355,18 @@ class Bitrix24
         $method = 'crm.lead.delete';
         $queryData = http_build_query([
             'id' => $id
+        ]);
+        return $this->cUrl($method, $queryData);
+    }
+
+    public function mergeLeads($ids)
+    {
+        $method = 'crm.lead.mergeBatch';
+        $queryData = http_build_query([
+            "params" => [
+                "entityTypeId" => self::ENTITY["LEAD"],
+                "entityIds" => $ids
+            ]
         ]);
         return $this->cUrl($method, $queryData);
     }

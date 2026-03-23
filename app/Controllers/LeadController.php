@@ -28,7 +28,6 @@ class LeadController
         ];
     }
 
-    //TODO response убрать, он для теста
    public function handle(array $request): void
    {
        $leadId = (int)($request['id'] ?? 0);
@@ -52,7 +51,7 @@ class LeadController
 
            $dupeIds = $this->lead->getDuplicatesByPhone($phones, $leadId);
            if (empty($dupeIds)) {
-               $this->logger->notice('Дубли не найдены', ['leadId' => $leadId]);
+               $this->logger->notice('Дубли не найдены', ['leadId' => $leadId, ]);
                return;
            }
 
@@ -69,28 +68,18 @@ class LeadController
 
            $mainId = $result['mergeInto']['ID'] ?? null;
            $toMerge = $result['duplicatesToMerge'] ?? [];
-           ///insteadof below
 
            //Test logs
-           if (!empty($mainLead)) {
-               $this->logger->notice("Основной лид: ", $result['mergeInto']);
-           }
-
-           if (!empty($leadsToMerge)) {
-               $this->logger->notice("Дубликаты: ", $result['duplicatesToMerge']);
-           }
+            if (!empty($result)){
+                $this->logger->info("Результат работы поиска основного лида", $result);
+            }
            //End of test logs
 
            if (!$mainId || empty($toMerge)) {
-               $this->logger->warning('Не удалось определить основного лида', ['leadId' => $leadId]);
+               $this->logger->warning('Не удалось определить основного лида', ['leadId' => $mainId, 'toMerge' => $toMerge]);
                return;
            }
 
-           foreach ($leadsToMerge as $leadToMerge) {
-               $this->lead->delete($leadToMerge["ID"]); ///????
-               unset($leadToMerge["ID"]);
-               $this->lead->update($mainId, $leadToMerge);
-           }
        }
        catch (\Throwable $e) {
            $this->logger->error('Критическая ошибка обработки дублей', [

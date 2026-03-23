@@ -24,20 +24,11 @@ class Lead
         return $this->bitrix24->getLead($id);
     }
 
-    //TODO в боевом режиме починить
-    public function update($id, $data): bool
+    public function merge(array $ids)
     {
-        return false;
-        return $this->bitrix24->updateLead($id, $data);
+        return $this->bitrix24->mergeLeads($ids);
     }
 
-    //TODO в боевом режиме починить
-    // Исправить на объединение, т.к. нужно хранить историю
-    public function delete($id)
-    {
-        return false;
-        return $this->bitrix24->deleteLead($id);
-    }
     public function getAll($ids): array
     {
         if (empty($ids)) return [];
@@ -54,9 +45,9 @@ class Lead
                     "NAME",
                     "SECOND_NAME",
                     "LAST_NAME",
-                    "UF_CRM_1668339568358", //Дата время записи
-                    "UF_CRM_1727328936",    // Диагноз
-                    "UF_CRM_1668352823231", // Год рождения
+                    "UF_CRM_1668339568358",  //Дата время записи
+                    "UF_CRM_1727328936",     // Диагноз
+                    "UF_CRM_1668352823231",  // Год рождения
                     "UF_CRM_1635751283979",  // Город
                 ],
                 $start
