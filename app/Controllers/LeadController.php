@@ -26,15 +26,29 @@ class LeadController
             new CreatedLessThan24hRule(),
             new AppointmentInFutureRule(),
         ];
+        $this->neededKeys = [
+            'ID',
+            'NAME',
+            'SECOND_NAME',
+            'LAST_NAME',
+            'STATUS_ID',
+            'DATE_CREATE',
+            'UF_CRM_1668339568358',
+            'UF_CRM_1727328936',
+            'UF_CRM_1668352823231',
+            'UF_CRM_1635751283979'
+        ];
     }
 
    public function handle(array $request): void
    {
-       $leadId = (int)($request['id'] ?? 0);
+       $this->logger->notice("");
+       $leadId = (int)($request['data']['FIELDS']['ID'] ?? 0);
        if ($leadId <= 0) {
            $this->logger->error('Некорректный ID лида', ['request' => $request]);
            return;
        }
+       $this->logger->notice("Входящий лид",$leadId);
 
        try {
            $lead = (array)$this->lead->get($leadId);
@@ -57,6 +71,7 @@ class LeadController
 
            $duplicates = $this->lead->getAll($dupeIds);
            $nonConverted = $this->filterNonConvertedLeads($duplicates);
+           $lead = array_intersect_key($lead, array_flip($this->neededKeys));
 
            if (empty($nonConverted)) {
                $this->logger->notice("Дубли не найдены", ['leadId' => $leadId]);
@@ -64,10 +79,12 @@ class LeadController
            }
 
            $this->selector->setRules($this->rules);
+
+           
            $result = $this->selector->chooseMainLead($nonConverted, $lead);
 
-           $mainId = $result['mergeInto']['ID'] ?? null;
-           $toMerge = $result['duplicatesToMerge'] ?? [];
+           $mainId = $result['mainLead']['ID'] ?? null;
+           $toMerge = $result['leadsToMerge'] ?? [];
 
            //Test logs
             if (!empty($result)){
@@ -76,7 +93,7 @@ class LeadController
            //End of test logs
 
            if (!$mainId || empty($toMerge)) {
-               $this->logger->warning('Не удалось определить основного лида', ['leadId' => $mainId, 'toMerge' => $toMerge]);
+               $this->logger->warning('Не удалось определить основного лида', ['mainId' => $mainId, 'toMerge' => $toMerge]);
                return;
            }
 
@@ -84,6 +101,7 @@ class LeadController
        catch (\Throwable $e) {
            $this->logger->error('Критическая ошибка обработки дублей', [
                'leadId' => $leadId,
+               "lead" => $lead ?? null,
                'error'  => $e->getMessage(),
                'trace'  => $e->getTraceAsString()
            ]);

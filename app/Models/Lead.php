@@ -40,11 +40,12 @@ class Lead
             $page = $this->bitrix24->getLeads(
                 ["@ID" => $ids],
                 [
-                    "STATUS_ID",
-                    "DATE_CREATE",
+                    "ID",
                     "NAME",
                     "SECOND_NAME",
                     "LAST_NAME",
+                    "STATUS_ID",
+                    "DATE_CREATE",
                     "UF_CRM_1668339568358",  //Дата время записи
                     "UF_CRM_1727328936",     // Диагноз
                     "UF_CRM_1668352823231",  // Год рождения

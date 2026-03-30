@@ -1,6 +1,7 @@
 <?php
-require __DIR__ . '/../vendor/autoload.php';
-require_once __DIR__ . '/../app/config/testData.php';
+require __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/app/config/testData.php';
+ini_set('display_errors', 1);
 
 use App\Controllers\LeadController;
 use App\Models\Lead;
@@ -10,7 +11,7 @@ use App\Services\Lead\LeadSelector;
 use App\Services\Logger;
 use Dotenv\Dotenv;
 
-$dotenv = Dotenv::createImmutable(dirname(__DIR__));
+$dotenv = Dotenv::createImmutable(__DIR__);
 $dotenv->load();
 
 $logger = new Logger();

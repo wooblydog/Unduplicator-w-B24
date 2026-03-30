@@ -13,7 +13,7 @@ class Logger
     public function __construct(string $logFile = null)
     {
         $logDirectory = dirname(__DIR__, 2) . '/logs/';
-
+        
         if (!is_dir($logDirectory)) {
             mkdir($logDirectory, 0755, true);
         }
@@ -38,7 +38,7 @@ class Logger
 
     public function info(...$vars): void
     {
-        $this->write('I', true, ...$vars);
+        $this->write('I', false, ...$vars);
     }
 
     private function write(string $typeKey, bool $pretty, ...$vars): void

@@ -2,45 +2,17 @@
 
 namespace App\Services\Lead;
 
-use App\Services\Logger;
-
 class LeadSelector
 {
     private array $rules;
-    private Logger $logger;
 
     public function __construct()
     {
-        $this->logger = new Logger();
     }
 
     public function setRules(array $rules): void
     {
         $this->rules = $rules;
-    }
-
-    public function chooseMainLead1(array $leads, object $newLead): array
-    {
-        $mainLead = $newLead;
-        foreach ($leads as $lead) {
-            foreach ($this->rules as $rule) {
-                if ($rule->applies($lead, $newLead)) {
-                    $mainLead = $lead;
-                    break 2;
-                }
-            }
-        }
-
-        $duplicates = array_filter($leads, fn($lead) => $lead['ID'] !== $mainLead['ID']);
-        $this->logger->notice('Выбор завершён', [
-            'mainLeadId' => $mainLead['ID'],
-            'duplicateIds' => array_column($duplicates, 'ID')
-        ]);
-
-        return [
-            'main' => $mainLead,
-            'duplicates' => array_values($duplicates)
-        ];
     }
 
     public function chooseMainLead(array $duplicates, $newLead): array

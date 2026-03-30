@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тестовый стенд LeadSelector</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        .section { border: 3px solid #10b981; box-shadow: 0 10px 15px -3px rgb(16 185 129 / 0.15); }
+        .lead-card { transition: all 0.3s ease; }
+        .lead-card:hover { transform: translateY(-3px); }
+        .rule-item { transition: all 0.2s; }
+        .rule-item:hover { background-color: #f3f4f6; }
+        .rule-active { background-color: #ecfdf5; border-left: 4px solid #10b981; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen py-8">
+
+<div class="max-w-7xl mx-auto px-6">
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-800">Тестовый стенд выбора главного лида</h1>
+        <button onclick="runBackendSelection()"
+                class="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-2xl flex items-center gap-3 shadow-lg">
+            <i class="fas fa-play"></i>
+            Запустить обработку
+        </button>
+    </div>
+
+    <div class="grid grid-cols-12 gap-4">
+        <div class="col-span-12 lg:col-span-3">
+            <div class="bg-white rounded-2xl shadow p-4 h-full">
+                <h3 class="font-semibold text-lg mb-5 text-gray-700">Правила приоритета</h3>
+                <div id="rulesList" class="space-y-2"></div>
+            </div>
+        </div>
+        <div class="col-span-12 lg:col-span-9 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-white rounded-2xl overflow-hidden border-2 border-yellow-400 shadow">
+                <div class="bg-yellow-400 text-white font-semibold text-center py-4">Новый лид</div>
+                <div id="newLeadCard" class="p-4"></div>
+            </div>
+            <div class="bg-white rounded-2xl overflow-hidden border-2 border-orange-400 shadow relative">
+                <div class="bg-orange-400 text-white font-semibold px-6 py-4 flex items-center justify-between">
+                    <span>Дубли</span>
+                    <button onclick="addNewDuplicate()"
+                            class="w-9 h-9 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-2xl flex items-center justify-center transition-all active:scale-90">
+                        <i class="fas fa-plus text-lg"></i>
+                    </button>
+                </div>
+                <div id="duplicatesContainer"
+                     class="p-4 space-y-6 overflow-y-auto"
+                     style="max-height: 520px; min-height: 420px;">
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl overflow-hidden border-2 border-sky-500 shadow">
+                <div class="bg-sky-500 text-white font-semibold text-center py-4">Итог</div>
+                <div id="resultContainer" class="p-4"></div>
+            </div>
+        </div>
+    </div>
+    <div id="mergeBlock" class="hidden mt-10 bg-white rounded-2xl shadow p-8">
+        <h3 class="font-semibold text-lg mb-4">Будут объединены (<span id="mergeCount" class="text-emerald-600">0</span> шт.)</h3>
+        <div id="mergeList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+    </div>
+</div>
+
+<script>
+    let currentData = null;
+    let currentTestName = '';
+    let duplicateCounter = 0;
+
+    async function loadTests() {
+        const res = await fetch('api.php?action=getTests');
+        const sets = await res.json();
+
+        const container = document.getElementById('rulesList');
+        container.innerHTML = '';
+
+        Object.keys(sets).forEach(name => {
+            const div = createRuleItem(name, () => loadTest(name, sets[name]));
+            container.appendChild(div);
+        });
+
+        const customDiv = createRuleItem("Своё правило", loadCustomRule);
+        container.appendChild(customDiv);
+
+        const firstChild = container.firstElementChild;
+        if (firstChild) {
+            firstChild.classList.add('rule-active');
+        }
+
+        if (Object.keys(sets).length > 0) {
+            const firstName = Object.keys(sets)[0];
+            loadTest(firstName, sets[firstName]);
+        }
+    }
+
+
+    function createRuleItem(name, onClick) {
+        const div = document.createElement('div');
+        div.className = `rule-item px-5 py-4 rounded-2xl cursor-pointer text-gray-700 font-medium`;
+        div.textContent = name;
+        div.onclick = () => {
+            document.querySelectorAll('.rule-item').forEach(el => el.classList.remove('rule-active'));
+            div.classList.add('rule-active');
+            onClick();
+        };
+        return div;
+    }
+
+    function loadTest(name, data) {
+        currentTestName = name;
+        currentData = JSON.parse(JSON.stringify(data));
+        duplicateCounter = currentData.duplicates ? currentData.duplicates.length : 0;
+
+        renderNewLead();
+        renderDuplicates();
+        resetResult();
+    }
+
+    function loadCustomRule() {
+        currentTestName = "Своё правило";
+        currentData = {
+            newLead: { ID: "", TITLE: "Новый лид", DATE_CREATE: "", UF_CRM_1668339568358: "", STATUS_ID: "1" },
+            duplicates: []
+        };
+        duplicateCounter = 0;
+
+        renderNewLead();
+        renderDuplicates();
+        resetResult();
+    }
+
+    function renderNewLead() {
+        const nl = currentData.newLead || {};
+        document.getElementById('newLeadCard').innerHTML = `
+    <div class="lead-card bg-white border border-gray-200 rounded-2xl p-4">
+      <input id="newTitle" value="${nl.TITLE || ''}" class="w-full text-lg font-semibold focus:outline-none border-b pb-2">
+      <div class="mt-5 space-y-4 text-sm">
+        <div class="flex justify-between"><span class="text-gray-500">ID</span> <input id="newId" value="${nl.ID || ''}" class="font-mono text-right w-24"></div>
+        <div class="flex justify-between"><span class="text-gray-500">Создан</span> <input type="datetime-local" id="newDateCreate" value="${nl.DATE_CREATE ? nl.DATE_CREATE.slice(0,16) : ''}"></div>
+        <div class="flex justify-between"><span class="text-gray-500">Записан</span> <input type="datetime-local" id="newRegister" value="${nl.UF_CRM_1668339568358 ? nl.UF_CRM_1668339568358.slice(0,16) : ''}"></div>
+      </div>
+    </div>
+  `;
+    }
+
+    function renderDuplicates() {
+        const container = document.getElementById('duplicatesContainer');
+        container.innerHTML = '';
+
+        (currentData.duplicates || []).forEach((lead, i) => {
+            const card = document.createElement('div');
+            card.className = 'lead-card bg-white border border-gray-200 rounded-2xl p-4';
+            card.innerHTML = `
+      <input id="dupTitle${i}" value="${lead.TITLE || ''}" class="w-full font-semibold focus:outline-none border-b pb-2">
+      <div class="mt-5 space-y-4 text-sm">
+        <div class="flex justify-between"><span class="text-gray-500">ID</span> <input id="dupId${i}" value="${lead.ID || ''}" class="font-mono text-right w-24"></div>
+        <div class="flex justify-between"><span class="text-gray-500">Создан</span> <input type="datetime-local" id="dupDate${i}" value="${lead.DATE_CREATE ? lead.DATE_CREATE.slice(0,16) : ''}"></div>
+        <div class="flex justify-between"><span class="text-gray-500">Записан</span> <input type="datetime-local" id="dupRegister${i}" value="${lead.UF_CRM_1668339568358 ? lead.UF_CRM_1668339568358.slice(0,16) : ''}"></div>
+      </div>
+    `;
+            container.appendChild(card);
+        });
+    }
+
+    function addNewDuplicate() {
+        if (!currentData.duplicates) currentData.duplicates = [];
+
+        currentData.duplicates.push({
+            ID: "",
+            TITLE: "Новый дубль",
+            DATE_CREATE: "",
+            UF_CRM_1668339568358: ""
+        });
+
+        renderDuplicates();
+    }
+
+    function resetResult() {
+        document.getElementById('resultContainer').innerHTML = `
+    <div class="text-center text-gray-400 py-20">
+      Нажмите "Запустить обработку"<br>для получения результата
+    </div>`;
+        document.getElementById('mergeBlock').classList.add('hidden');
+    }
+
+    async function runBackendSelection() {
+        if (!currentData) return;
+
+        const newLead = {
+            ID: document.getElementById('newId').value,
+            TITLE: document.getElementById('newTitle').value,
+            DATE_CREATE: document.getElementById('newDateCreate').value ? document.getElementById('newDateCreate').value + ':00+05:00' : '',
+            UF_CRM_1668339568358: document.getElementById('newRegister').value ? document.getElementById('newRegister').value + ':00+05:00' : ''
+        };
+
+        const duplicates = (currentData.duplicates || []).map((_, i) => ({
+            ID: document.getElementById(`dupId${i}`).value,
+            TITLE: document.getElementById(`dupTitle${i}`).value,
+            DATE_CREATE: document.getElementById(`dupDate${i}`).value ? document.getElementById(`dupDate${i}`).value + ':00+05:00' : '',
+            UF_CRM_1668339568358: document.getElementById(`dupRegister${i}`).value ? document.getElementById(`dupRegister${i}`).value + ':00+05:00' : ''
+        }));
+
+        const res = await fetch('api.php?action=process', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ newLead, duplicates })
+        });
+
+        const result = await res.json();
+        showResult(result);
+    }
+
+    function showResult(result) {
+        const container = document.getElementById('resultContainer');
+        const mergeBlock = document.getElementById('mergeBlock');
+
+        if (!result.mainLead) {
+            container.innerHTML = `<p class="text-red-500 text-center">Ошибка обработки</p>`;
+            return;
+        }
+
+        container.innerHTML = `
+    <div class="lead-card bg-white border border-gray-200 rounded-2xl p-4">
+      <div class="font-semibold text-lg mb-1">${result.mainLead.TITLE || 'Главный лид'}</div>
+      <div class="text-sm text-gray-600">ID: ${result.mainLead.ID || '—'}</div>
+    </div>
+  `;
+
+        if (result.leadsToMerge && result.leadsToMerge.length > 0) {
+            mergeBlock.classList.remove('hidden');
+            document.getElementById('mergeCount').textContent = result.leadsToMerge.length;
+
+            let html = '';
+            result.leadsToMerge.forEach(l => {
+                html += `<div class="bg-gray-50 border border-gray-200 rounded-2xl p-4">${l.TITLE || ''} <span class="text-xs text-gray-500">(ID: ${l.ID})</span></div>`;
+            });
+            document.getElementById('mergeList').innerHTML = html;
+        } else {
+            mergeBlock.classList.add('hidden');
+        }
+    }
+
+    loadTests();
+</script>
+</body>
+</html>
