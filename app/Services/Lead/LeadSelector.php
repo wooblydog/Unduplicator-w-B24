@@ -15,32 +15,50 @@ class LeadSelector
         $this->rules = $rules;
     }
 
-    public function chooseMainLead(array $duplicates, $newLead): array
-    {
-        $mainLead = $newLead;
-        $mergeTarget = $newLead;
+   public function chooseMainLead(array $duplicates, $newLead): array
+{
+    if (is_array($newLead)) {
+        $newLead = (object)$newLead;
+    }
 
-        foreach ($duplicates as $oldLead) {
-            foreach ($this->rules as $rule) {
-                if ($rule->preferOldLead($oldLead, $newLead)) {
-                    $mainLead = $oldLead;
-                    $mergeTarget = $oldLead;
-                    break 2;
-                }
+    $mainLead = $newLead;
+    $mergeTarget = $newLead;
+
+    foreach ($duplicates as $oldLead) {
+        if (is_array($oldLead)) {
+            $oldLead = (object)$oldLead;
+        }
+
+        foreach ($this->rules as $rule) {
+            if ($rule->preferOldLead($oldLead, $newLead)) {
+                $mainLead = $oldLead;
+                $mergeTarget = $oldLead;
+                break 2;
             }
         }
-
-        $toMerge = array_filter($duplicates, fn($l) => $l->ID !== $mergeTarget->ID);
-        if ($mainLead->ID !== $newLead->ID) {
-            $toMerge[] = $newLead;
-        }
-
-        $duplicateIDs = array_merge([$mainLead->ID], array_column($toMerge, 'ID'));
-
-        return [
-            'mainLead'      => $mergeTarget,
-            'leadsToMerge' => array_values($toMerge),
-            'duplicateIds' => $duplicateIDs,
-        ];
     }
+
+    $toMerge = array_filter($duplicates, function ($l) use ($mergeTarget) {
+        if (is_array($l)) $l = (object)$l;
+        if (is_array($mergeTarget)) $mergeTarget = (object)$mergeTarget;
+        return $l->ID !== $mergeTarget->ID;
+    });
+
+    if ($mainLead->ID !== $newLead->ID) {
+        $toMerge[] = $newLead;
+    }
+
+    $duplicateIDs = [$mainLead->ID ?? null];
+
+    foreach ($toMerge as $item) {
+        if (is_array($item)) $item = (object)$item;
+        $duplicateIDs[] = $item->ID ?? null;
+    }
+
+    return [
+        'mainLead'      => (array)$mergeTarget,
+        'leadsToMerge'  => array_map(fn($l) => (array)$l, array_values($toMerge)),
+        'duplicateIds'  => array_filter($duplicateIDs),
+    ];
+}
 }

@@ -71,7 +71,6 @@ class LeadController
 
            $duplicates = $this->lead->getAll($dupeIds);
            $nonConverted = $this->filterNonConvertedLeads($duplicates);
-           $lead = array_intersect_key($lead, array_flip($this->neededKeys));
 
            if (empty($nonConverted)) {
                $this->logger->notice("Дубли не найдены", ['leadId' => $leadId]);
@@ -79,9 +78,10 @@ class LeadController
            }
 
            $this->selector->setRules($this->rules);
+           $lead = array_intersect_key($lead, array_flip($this->neededKeys));
 
-           
-           $result = $this->selector->chooseMainLead($nonConverted, $lead);
+           $newLeadObj = (object)$lead;
+           $result = $this->selector->chooseMainLead($nonConverted, $newLeadObj);
 
            $mainId = $result['mainLead']['ID'] ?? null;
            $toMerge = $result['leadsToMerge'] ?? [];
