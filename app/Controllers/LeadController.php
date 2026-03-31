@@ -86,7 +86,7 @@ class LeadController
            $mainId = $result['mainLead']['ID'] ?? null;
            $toMerge = $result['leadsToMerge'] ?? [];
 
-           //Test logs
+           //Test logs123
             if (!empty($result)){
                 $this->logger->info("Результат работы поиска основного лида", $result);
             }
