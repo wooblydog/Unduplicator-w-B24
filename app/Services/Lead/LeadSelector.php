@@ -15,50 +15,71 @@ class LeadSelector
         $this->rules = $rules;
     }
 
-   public function chooseMainLead(array $duplicates, $newLead): array
-{
-    if (is_array($newLead)) {
-        $newLead = (object)$newLead;
-    }
-
-    $mainLead = $newLead;
-    $mergeTarget = $newLead;
-
-    foreach ($duplicates as $oldLead) {
-        if (is_array($oldLead)) {
-            $oldLead = (object)$oldLead;
+    public function chooseMainLead(array $duplicates, $newLead): array
+    {
+        if (is_array($newLead)) {
+            $newLead = (object)$newLead;
         }
 
-        foreach ($this->rules as $rule) {
-            if ($rule->preferOldLead($oldLead, $newLead)) {
-                $mainLead = $oldLead;
-                $mergeTarget = $oldLead;
-                break 2;
+        $bestLead = $this->findBestLead($duplicates, $newLead);
+
+        return $this->buildResult($bestLead, $newLead, $duplicates);
+    }
+
+    /**
+     * Находит лучший лид по количеству сработавших правил
+     */
+    private function findBestLead(array $duplicates, object $newLead): object
+    {
+        $bestLead = $newLead;
+        $bestScore = 0;
+
+        foreach ($duplicates as $oldLead) {
+
+            if (is_array($oldLead)) {
+                $oldLead = (object)$oldLead;
+            }
+
+            $score = 0;
+
+            foreach ($this->rules as $rule) {
+                if ($rule->preferOldLead($oldLead, $newLead)) {
+                    $score++;
+                }
+            }
+
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $bestLead = $oldLead;
+            }
+            elseif ($score === $bestScore && $score > 0) {
+                if (strtotime($oldLead->DATE_CREATE) < strtotime($bestLead->DATE_CREATE)) {
+                    $bestLead = $oldLead;
+                }
             }
         }
+
+        return $bestLead;
     }
 
-    $toMerge = array_filter($duplicates, function ($l) use ($mergeTarget) {
-        if (is_array($l)) $l = (object)$l;
-        if (is_array($mergeTarget)) $mergeTarget = (object)$mergeTarget;
-        return $l->ID !== $mergeTarget->ID;
-    });
+    private function buildResult(object $bestLead, object $newLead, array $duplicates): array
+    {
+        $toMerge = array_filter($duplicates, fn($l) => $l->ID !== $bestLead->ID);
 
-    if ($mainLead->ID !== $newLead->ID) {
-        $toMerge[] = $newLead;
+        if ($bestLead->ID !== $newLead->ID) {
+            $toMerge[] = $newLead;
+        }
+
+        $duplicateIDs = [$bestLead->ID];
+
+        foreach ($toMerge as $item) {
+            $duplicateIDs[] = $item->ID ?? null;
+        }
+
+        return [
+            'mainLead'      => (array)$bestLead,
+            'leadsToMerge'  => array_map(fn($l) => (array)$l, array_values($toMerge)),
+            'duplicateIds'  => array_filter($duplicateIDs),
+        ];
     }
-
-    $duplicateIDs = [$mainLead->ID ?? null];
-
-    foreach ($toMerge as $item) {
-        if (is_array($item)) $item = (object)$item;
-        $duplicateIDs[] = $item->ID ?? null;
-    }
-
-    return [
-        'mainLead'      => (array)$mergeTarget,
-        'leadsToMerge'  => array_map(fn($l) => (array)$l, array_values($toMerge)),
-        'duplicateIds'  => array_filter($duplicateIDs),
-    ];
-}
 }

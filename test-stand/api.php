@@ -18,6 +18,11 @@ if ($action === 'getTests') {
 if ($action === 'process') {
     $input = json_decode(file_get_contents('php://input'), true);
 
+    $input = normalizeTestDates($input);
+
+    $newLead = (object)$input['newLead'];
+    $duplicates = array_map(fn($d) => (object)$d, $input['duplicates']);
+
     if (!$input || !isset($input['newLead'], $input['duplicates'])) {
         echo json_encode(['error' => 'Invalid input data']);
         exit;
@@ -28,8 +33,8 @@ if ($action === 'process') {
 
     $selector = new LeadSelector();
     $selector->setRules([
-        new CreatedLessThan24hRule(),
         new AppointmentInFutureRule(),
+        new CreatedLessThan24hRule(),
     ]);
 
     try {
@@ -48,6 +53,39 @@ if ($action === 'process') {
         ]);
     }
     exit;
+}
+function normalizeTestDates($data) {
+    $now = time();
+
+    $replace = function($dateStr) use ($now) {
+        if ($dateStr === "CURRENT") {
+            return date('Y-m-d\TH:i:s+05:00', $now);
+        }
+
+        if (preg_match('/^CURRENT_(PLUS|MINUS)_(\d+)_(HOURS|DAYS)(?:_(\d+):(\d+))?$/', $dateStr, $m)) {
+            $sign   = $m[1] === 'PLUS' ? 1 : -1;
+            $amount = (int)$m[2];
+            $unit   = $m[3] === 'DAYS' ? 86400 : 3600;
+
+            $timestamp = $now + $sign * $amount * $unit;
+
+            if (!empty($m[4])) {
+                return date('Y-m-d', $timestamp) . sprintf('T%02d:%02d:00+05:00', $m[4], $m[5]);
+            }
+
+            return date('Y-m-d\TH:i:s+05:00', $timestamp);
+        }
+
+        return $dateStr;
+    };
+
+    array_walk_recursive($data, function(&$value) use ($replace) {
+        if (is_string($value) && strpos($value, 'CURRENT') === 0) {
+            $value = $replace($value);
+        }
+    });
+
+    return $data;
 }
 
 echo json_encode(['error' => 'Unknown action']);
