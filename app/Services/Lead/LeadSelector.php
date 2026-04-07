@@ -51,8 +51,7 @@ class LeadSelector
             if ($score > $bestScore) {
                 $bestScore = $score;
                 $bestLead = $oldLead;
-            }
-            elseif ($score === $bestScore && $score > 0) {
+            } elseif ($score === $bestScore && $score > 0) {
                 if (strtotime($oldLead->DATE_CREATE) < strtotime($bestLead->DATE_CREATE)) {
                     $bestLead = $oldLead;
                 }
@@ -62,7 +61,7 @@ class LeadSelector
         return $bestLead;
     }
 
-    private function buildResult(object $bestLead, object $newLead, array $duplicates): array
+    private function buildResult(object $bestLead, object $newLead, array $duplicates, bool $isB24 = false): array
     {
         $toMerge = array_filter($duplicates, fn($l) => $l->ID !== $bestLead->ID);
 
@@ -77,9 +76,9 @@ class LeadSelector
         }
 
         return [
-            'mainLead'      => (array)$bestLead,
-            'leadsToMerge'  => array_map(fn($l) => (array)$l, array_values($toMerge)),
-            'duplicateIds'  => array_filter($duplicateIDs),
+            'MainLead' => (array)$bestLead,
+            'leadsToMerge' => array_column($toMerge, 'ID'),
+            'DuplicateData' => $duplicateIDs,
         ];
     }
 }

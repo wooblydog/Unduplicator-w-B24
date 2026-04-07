@@ -40,79 +40,87 @@ class LeadController
         ];
     }
 
-   public function handle(array $request): void
-   {
-       $this->logger->notice("");
-       $leadId = (int)($request['data']['FIELDS']['ID'] ?? 0);
-       if ($leadId <= 0) {
-           $this->logger->error('Некорректный ID лида', ['request' => $request]);
-           return;
-       }
-       $this->logger->notice("Входящий лид",$leadId);
+    public function handle(array $request): void
+    {
+        $this->logger->notice("");
+        $leadId = (int)($request['ID'] ?? 0);
+        if ($leadId <= 0) {
+            $this->logger->error('Некорректный ID лида', ['request' => $request]);
+            return;
+        }
+        $this->logger->notice("Входящий лид", $leadId);
 
-       try {
-           $lead = (array)$this->lead->get($leadId);
-           if (empty($lead)) {
-               $this->logger->error('Лид не найден', ['leadId' => $leadId]);
-               return;
-           }
+        try {
+            $lead = (array)$this->lead->get($leadId);
+            if (empty($lead)) {
+                $this->logger->error('Лид не найден', ['leadId' => $leadId]);
+                return;
+            }
 
-           $phones = array_column($lead['PHONE'] ?? [], 'VALUE');
-           if (empty($phones)) {
-               $this->logger->notice('Лид без телефона', ['leadId' => $leadId]);
-               return;
-           }
+            $phones = array_column($lead['PHONE'] ?? [], 'VALUE');
+            if (empty($phones)) {
+                $this->logger->notice('Лид без телефона', ['leadId' => $leadId]);
+                return;
+            }
 
-           $dupeIds = $this->lead->getDuplicatesByPhone($phones, $leadId);
-           if (empty($dupeIds)) {
-               $this->logger->notice('Дубли не найдены', ['leadId' => $leadId, ]);
-               return;
-           }
+            $dupeIds = $this->lead->getDuplicatesByPhone($phones, $leadId);
+            if (empty($dupeIds)) {
+                $this->logger->notice('Дубли не найдены', ['leadId' => $leadId,]);
+                return;
+            }
 
-           $duplicates = $this->lead->getAll($dupeIds);
-           $nonConverted = $this->filterNonConvertedLeads($duplicates);
+            $duplicates = $this->lead->getAll($dupeIds);
+            $nonConverted = $this->filterNonConvertedLeads($duplicates);
 
-           if (empty($nonConverted)) {
-               $this->logger->notice("Дубли не найдены", ['leadId' => $leadId]);
-               return;
-           }
+            if (empty($nonConverted)) {
+                $this->logger->notice("Дубли не найдены", ['leadId' => $leadId]);
+                return;
+            }
 
-           $this->selector->setRules($this->rules);
-           $lead = array_intersect_key($lead, array_flip($this->neededKeys));
+            $this->selector->setRules($this->rules);
+            $lead = array_intersect_key($lead, array_flip($this->neededKeys));
 
-           $newLeadObj = (object)$lead;
-           $result = $this->selector->chooseMainLead($nonConverted, $newLeadObj);
+            $newLeadObj = (object)$lead;
+            $result = $this->selector->chooseMainLead($nonConverted, $newLeadObj);
 
-           $mainId = $result['mainLead']['ID'] ?? null;
-           $toMerge = $result['leadsToMerge'] ?? [];
+            $mainId = $result['mainLead']['ID'] ?? null;
+            $toMerge = $result['leadsToMerge'] ?? [];
 
-           //Test logs
-            if (!empty($result)){
+            //TODO make merge with b24
+            //Test logs
+            if (!empty($result)) {
                 $this->logger->info("Результат работы поиска основного лида", $result);
             }
-           //End of test logs
+            //End of test logs
 
-           if (!$mainId || empty($toMerge)) {
-               $this->logger->warning('Не удалось определить основного лида', ['mainId' => $mainId, 'toMerge' => $toMerge]);
-               return;
-           }
+            if (!empty($result)){
+                $this->sendDataToTable($result);
+            }
 
-       }
-       catch (\Throwable $e) {
-           $this->logger->error('Критическая ошибка обработки дублей', [
-               'leadId' => $leadId,
-               "lead" => $lead ?? null,
-               'error'  => $e->getMessage(),
-               'trace'  => $e->getTraceAsString()
-           ]);
-       }
+            if (!$mainId || empty($toMerge)) {
+                $this->logger->warning('Не удалось определить основного лида', ['mainId' => $mainId, 'toMerge' => $toMerge]);
+                return;
+            }
+
+        } catch (\Throwable $e) {
+            $this->logger->error('Критическая ошибка обработки дублей', [
+                'leadId' => $leadId,
+                "lead" => $lead ?? null,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
     }
-
 
     public function filterNonConvertedLeads($leads): array
     {
         return array_filter($leads, function ($lead) {
             return $lead->STATUS_ID !== 'CONVERTED';
         });
+    }
+
+    public function sendDataToTable($Duplicates): array
+    {
+        return [];
     }
 }
