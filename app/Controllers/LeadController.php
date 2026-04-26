@@ -16,6 +16,7 @@ class LeadController
     private Lead $lead;
     private LeadSelector $selector;
     private array $rules;
+    private array $neededKeys;
 
     public function __construct()
     {
@@ -86,9 +87,13 @@ class LeadController
             $mainId = $result['MainLead']['ID'] ?? null;
 
             if (!empty($result)) {
-                $preparedData = $this->selector->prepareDataForTableFromResult($result);
-                $this->sendDataToTable($preparedData);
-                $this->lead->merge($result['DuplicateData']);
+//                $preparedData = $this->selector->prepareDataForTableFromResult($result);
+//                $this->sendDataToTable($preparedData);
+//                $mergeResult = $this->lead->merge($result['DuplicateData'])->result->STATUS;
+//                if ($mergeResult === 'CONFLICT') {
+//                    $this->logger->conflict("https://{$_ENV["B24_DOMAIN"]}/crm/lead/merge/?id=" . implode(",",$result['DuplicateData']));
+//                    return;
+//                }
 //                $this->logger->info("Результат работы поиска основного лида", $result);
             }
 
