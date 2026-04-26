@@ -6,9 +6,7 @@ class LeadSelector
 {
     private array $rules;
 
-    public function __construct()
-    {
-    }
+    public function __construct() {}
 
     public function setRules(array $rules): void
     {
@@ -61,7 +59,7 @@ class LeadSelector
         return $bestLead;
     }
 
-    private function buildResult(object $bestLead, object $newLead, array $duplicates, bool $isB24 = false): array
+    private function buildResult(object $bestLead, object $newLead, array $duplicates): array
     {
         $toMerge = array_filter($duplicates, fn($l) => $l->ID !== $bestLead->ID);
 
@@ -79,6 +77,26 @@ class LeadSelector
             'MainLead' => (array)$bestLead,
             'leadsToMerge' => array_column($toMerge, 'ID'),
             'DuplicateData' => $duplicateIDs,
+            'DuplicateFullData' => $toMerge,
         ];
+    }
+
+    public function prepareDataForTableFromResult(array $duplicateData)
+    {
+        $preparedData = [
+            'MainLead' => [
+                'Id' => $duplicateData['MainLead']['ID'],
+                'Uid' => $duplicateData['MainLead']['UF_CRM_1726815456024'] ?? '',
+            ],
+            'Duplicates' => []
+        ];
+
+        foreach ($duplicateData['DuplicateFullData'] as $duple) {
+            $preparedData['Duplicates'][] = [
+                'Id' => $duple->ID,
+                'Uid' => $duple->UF_CRM_1726815456024 ?? '',
+            ];
+        }
+        return $preparedData;
     }
 }

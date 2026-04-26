@@ -33,10 +33,11 @@ class LeadController
             'LAST_NAME',
             'STATUS_ID',
             'DATE_CREATE',
-            'UF_CRM_1668339568358',
-            'UF_CRM_1727328936',
-            'UF_CRM_1668352823231',
-            'UF_CRM_1635751283979'
+            'UF_CRM_1668339568358', // Дата и время приема
+            'UF_CRM_1727328936', // Диагноз
+            'UF_CRM_1668352823231', // Возраст
+            'UF_CRM_1635751283979', // Город
+            'UF_CRM_1726815456024', // Табличный идентификатор
         ];
     }
 
@@ -79,26 +80,20 @@ class LeadController
 
             $this->selector->setRules($this->rules);
             $lead = array_intersect_key($lead, array_flip($this->neededKeys));
-
             $newLeadObj = (object)$lead;
+
             $result = $this->selector->chooseMainLead($nonConverted, $newLeadObj);
+            $mainId = $result['MainLead']['ID'] ?? null;
 
-            $mainId = $result['mainLead']['ID'] ?? null;
-            $toMerge = $result['leadsToMerge'] ?? [];
-
-            //TODO make merge with b24
-            //Test logs
             if (!empty($result)) {
-                $this->logger->info("Результат работы поиска основного лида", $result);
-            }
-            //End of test logs
-
-            if (!empty($result)){
-                $this->sendDataToTable($result);
+                $preparedData = $this->selector->prepareDataForTableFromResult($result);
+                $this->sendDataToTable($preparedData);
+                $this->lead->merge($result['DuplicateData']);
+//                $this->logger->info("Результат работы поиска основного лида", $result);
             }
 
-            if (!$mainId || empty($toMerge)) {
-                $this->logger->warning('Не удалось определить основного лида', ['mainId' => $mainId, 'toMerge' => $toMerge]);
+            if (!$mainId || empty($result['leadsToMerge'])) {
+                $this->logger->warning('Не удалось определить основного лида', ['mainId' => $mainId, 'toMerge' => $result['leadsToMerge']]);
                 return;
             }
 
@@ -119,8 +114,46 @@ class LeadController
         });
     }
 
-    public function sendDataToTable($Duplicates): array
+    private function sendDataToTable(array $preparedData)
     {
-        return [];
+        try {
+            if (empty($preparedData)) {
+                $this->logger->error("Ошибка отправки данных в таблицу. Список лидов пуст");
+                return;
+            }
+
+            $mainLeadGuid = $preparedData['MainLead']['Uid'] ?? '';
+            $mainLeadId = $preparedData['MainLead']['Id'] ?? 0;
+
+            if (empty($mainLeadGuid)) {
+                $this->logger->info("Пропускаю отправку данных в таблицу. MainLead {$mainLeadId} с пустым табличным идентификатором.");
+                return;
+            }
+
+            $jsonData = json_encode($preparedData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+            $ch = curl_init();
+            curl_setopt_array($ch, [
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_POST => true,
+                CURLOPT_HTTPHEADER => ['Content-Type: application/json',],
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_URL => $_ENV["UD_TABLE_URL"],
+                CURLOPT_POSTFIELDS => $jsonData,
+            ]);
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+            curl_close($ch);
+
+            if ($httpCode < 200 || $httpCode >= 300) {
+                $this->logger->info("Не удалось отправить данные в таблицу: {$httpCode}");
+                $this->logger->error("Ошибка отправки данных в таблицу: {$httpCode} — {$response}");
+                return;
+            }
+
+        } catch (\Exception $ex) {
+            $this->logger->error("Вызвано исключение при отправки данных в таблицу: " . $ex->getMessage());
+        }
     }
 }

@@ -52,7 +52,7 @@ class Bitrix24
 
     /**
      * @param string $method
-     * @param array $data
+     * @param mixed $data
      * @return mixed
      */
     private function cUrl($method, $data)
@@ -361,7 +361,7 @@ class Bitrix24
 
     public function mergeLeads($ids)
     {
-        $method = 'crm.lead.mergeBatch';
+        $method = 'crm.entity.mergeBatch';
         $queryData = http_build_query([
             "params" => [
                 "entityTypeId" => self::ENTITY["LEAD"],
