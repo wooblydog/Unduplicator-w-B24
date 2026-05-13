@@ -681,7 +681,6 @@ class Bitrix24
 
     public function getCategories($entityTypeId)
     {
-
         $method = "crm.category.list";
         $queryData = http_build_query([
             'entityTypeId' => $entityTypeId
@@ -707,20 +706,117 @@ class Bitrix24
         return $this->cUrl($method, $queryData);
     }
 
-    public function getLeadActivities($id, array $select = [])
+    public function getLeadActivities($leadId, int $start = 0)
     {
         $method = "crm.activity.list";
         $queryData = http_build_query([
             "filter" => [
-                'OWNER_TYPE_ID'   => 1,
-                'OWNER_ID' => $id,
+                'OWNER_TYPE_ID' => 1,
+                'OWNER_ID' => $leadId,
             ],
             "order" => [
-                "CREATED" => "DESC"
+                "created" => "desc"
             ],
-            "select" => $select
+            "start" => $start
         ]);
 
         return $this->cUrl($method, $queryData);
+    }
+    public function deleteComment(int $commentId): object
+    {
+        $method = "crm.timeline.comment.delete";
+        $queryData = http_build_query([
+            "id" => $commentId
+        ]);
+
+        return $this->cUrl($method, $queryData);
+    }
+    public function addComment(int $entityId, string $entityType, string $text, array $fields = []): object
+    {
+        $method = "crm.timeline.comment.add";
+        $data = [
+            "fields" => array_merge([
+                "ENTITY_ID"   => $entityId,
+                "ENTITY_TYPE" => $entityType,
+                "COMMENT"     => $text,
+            ], $fields)
+        ];
+
+        $queryData = http_build_query($data);
+        return $this->cUrl($method, $queryData);
+    }
+    public function addActivity(array $fields): object
+    {
+        $method = "crm.activity.add";
+        $queryData = http_build_query(["fields" => $fields]);
+        return $this->cUrl($method, $queryData);
+    }
+
+    /**
+     * Регистрация внешнего звонка
+     */
+    public function externalCallRegister(array $data): object
+    {
+        $method = "telephony.externalCall.register";
+        $queryData = http_build_query($data);
+        return $this->cUrl($method, $queryData);
+    }
+
+    /**
+     * Завершение звонка
+     */
+    public function externalCallFinish(array $data): object
+    {
+        $method = "telephony.externalCall.finish";
+        $queryData = http_build_query($data);
+        return $this->cUrl($method, $queryData);
+    }
+
+    /**
+     * Прикрепление записи звонка (заглушка на будущее)
+     */
+    /**
+     * Прикрепить запись звонка
+     */
+    public function externalCallAttachRecord(string $callId, string $fileUrl, string $fileName = ''): object
+    {
+        // Скачиваем файл
+        $fileContent = $this->downloadFile($fileUrl);
+
+        if ($fileContent === false) {
+            throw new \Exception("Не удалось скачать запись звонка: " . $fileUrl);
+        }
+
+        $method = "telephony.externalCall.attachRecord";
+
+        $data = [
+            "CALL_ID"     => $callId,
+            "FILENAME"    => $fileName ?: basename(parse_url($fileUrl, PHP_URL_PATH)) ?: 'record.mp3',
+            "FILE_CONTENT"=> base64_encode($fileContent),
+        ];
+
+        $queryData = http_build_query($data);
+
+        return $this->cUrl($method, $queryData);
+    }
+
+    //TODO подумать над скачиванием как реализовать
+    private function downloadFile(string $url): string|false
+    {
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // если проблемы с SSL
+
+        // Если нужно — добавь авторизацию (cookies, headers и т.д.)
+        // curl_setopt($ch, CURLOPT_COOKIE, 'PHPSESSID=...');
+        // curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: ...']);
+
+        $data = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        return ($httpCode === 200 && $data !== false) ? $data : false;
     }
 }

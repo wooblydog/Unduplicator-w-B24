@@ -64,7 +64,8 @@ class Lead
         return array_filter($leads, fn($id) => $id !== $excludeId);
     }
 
-    public function transferCalls(){}
-    public function transferComments(){}
-    public function transferCase(){}
+    public function delete($id)
+    {
+        return $this->bitrix24->deleteLead($id);
+    }
 }

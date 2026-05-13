@@ -9,7 +9,7 @@ use App\Rules\AppointmentInFutureRule;
 use App\Rules\CreatedLessThan24hRule;
 use App\Services\Bitrix24;
 use App\Services\Lead\LeadSelector;
-use App\Services\LeadMergeService;
+use App\Services\TimelineMergeService;
 use App\Services\Logger;
 use Dotenv\Dotenv;
 
@@ -23,9 +23,9 @@ $selector = new LeadSelector();
 
 //TODO инит битрикс, будет в модели лид
 $bitrix = new Bitrix24($_ENV["B24_DOMAIN"], $_ENV["B24_ID"], $_ENV["B24_HASH"]);
-$merger = new LeadMergeService($bitrix);
+$merger = new TimelineMergeService($bitrix);
 
-$merger->transferActivities();
+$merger->merge([885754], 1247854);
 
 // $rules = [
 //     new CreatedLessThan24hRule(),
