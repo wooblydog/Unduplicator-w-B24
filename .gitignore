@@ -8,3 +8,5 @@ composer.phar
 .env
 logs
 composer.lock
+.vscode
+api.tech-ud72.ru

@@ -6,8 +6,6 @@ class LeadSelector
 {
     private array $rules;
 
-    public function __construct() {}
-
     public function setRules(array $rules): void
     {
         $this->rules = $rules;

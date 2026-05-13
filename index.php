@@ -7,7 +7,9 @@ use App\Controllers\LeadController;
 use App\Models\Lead;
 use App\Rules\AppointmentInFutureRule;
 use App\Rules\CreatedLessThan24hRule;
+use App\Services\Bitrix24;
 use App\Services\Lead\LeadSelector;
+use App\Services\LeadMergeService;
 use App\Services\Logger;
 use Dotenv\Dotenv;
 
@@ -19,13 +21,19 @@ $leadController = new LeadController();
 $lead = new Lead();
 $selector = new LeadSelector();
 
-$rules = [
-    new CreatedLessThan24hRule(),
-    new AppointmentInFutureRule(),
-];
+//TODO инит битрикс, будет в модели лид
+$bitrix = new Bitrix24($_ENV["B24_DOMAIN"], $_ENV["B24_ID"], $_ENV["B24_HASH"]);
+$merger = new LeadMergeService($bitrix);
 
-$selector->setRules($rules);
-$leadController->handle($_POST);
+$merger->transferActivities();
+
+// $rules = [
+//     new CreatedLessThan24hRule(),
+//     new AppointmentInFutureRule(),
+// ];
+
+// $selector->setRules($rules);
+// $leadController->handle($_POST);
 
 //dump("Правило возраста", $selector->prepareDataForTableFromResult($selector->chooseMainLead($ageRuleTestSet["dup"], $ageRuleTestSet["new"])));
 //dump("Правило записи", $selector->chooseMainLead($hasApptTestSet["dup"], $hasApptTestSet["new"]));

@@ -24,11 +24,6 @@ class Lead
         return $this->bitrix24->getLead($id);
     }
 
-    public function merge(array $ids)
-    {
-        return $this->bitrix24->mergeLeads($ids);
-    }
-
     public function getAll($ids): array
     {
         if (empty($ids)) return [];
@@ -68,4 +63,8 @@ class Lead
 
         return array_filter($leads, fn($id) => $id !== $excludeId);
     }
+
+    public function transferCalls(){}
+    public function transferComments(){}
+    public function transferCase(){}
 }

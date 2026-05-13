@@ -689,4 +689,38 @@ class Bitrix24
 
         return $this->cUrl($method, $queryData);
     }
+
+    public function getEntityComments(array $filter, array $select = [])
+    {
+        $method = "crm.timeline.comment.list";
+        $queryData = http_build_query([
+            "filter" => [
+                'ENTITY_ID'   => (int)$filter['ID'],
+                'ENTITY_TYPE' => $filter['entityType'],
+            ],
+            "order" => [
+                "CREATED" => "DESC"
+            ],
+            "select" => $select
+        ]);
+
+        return $this->cUrl($method, $queryData);
+    }
+
+    public function getLeadActivities($id, array $select = [])
+    {
+        $method = "crm.activity.list";
+        $queryData = http_build_query([
+            "filter" => [
+                'OWNER_TYPE_ID'   => 1,
+                'OWNER_ID' => $id,
+            ],
+            "order" => [
+                "CREATED" => "DESC"
+            ],
+            "select" => $select
+        ]);
+
+        return $this->cUrl($method, $queryData);
+    }
 }
