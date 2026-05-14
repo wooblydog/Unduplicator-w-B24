@@ -25,20 +25,21 @@ $selector = new LeadSelector();
 $bitrix = new Bitrix24($_ENV["B24_DOMAIN"], $_ENV["B24_ID"], $_ENV["B24_HASH"]);
 $merger = new TimelineMergeService($bitrix);
 
-$merger->merge([885754], 1247854);
+// $merger->merge([30949], 1247854);
+$_POST['ID'] = 1247854;
 
-// $rules = [
-//     new CreatedLessThan24hRule(),
-//     new AppointmentInFutureRule(),
-// ];
+$rules = [
+    new CreatedLessThan24hRule(),
+    new AppointmentInFutureRule(),
+];
 
-// $selector->setRules($rules);
-// $leadController->handle($_POST);
+$selector->setRules($rules);
+$leadController->handle($_POST);
 
-//dump("Правило возраста", $selector->prepareDataForTableFromResult($selector->chooseMainLead($ageRuleTestSet["dup"], $ageRuleTestSet["new"])));
+// dd("Правило возраста", $selector->prepareDataForTableFromResult($selector->chooseMainLead($ageRuleTestSet["dup"], $ageRuleTestSet["new"])));
 //dump("Правило записи", $selector->chooseMainLead($hasApptTestSet["dup"], $hasApptTestSet["new"]));
 //dump("Правило записи в прошлом", $selector->chooseMainLead($pastApptTestSet["dup"], $pastApptTestSet["new"]));
 //dump("Конфликтные", $selector->chooseMainLead($conflictRulesTestSet["dup"], $conflictRulesTestSet["new"]));
 
 
-// TODO записать плохие траи и ретрайнуть по круду раз в день
+// TODO записать плохие траи и ретрайнуть по круду раз в день ???

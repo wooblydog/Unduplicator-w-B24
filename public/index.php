@@ -25,11 +25,3 @@ $rules = [
 
 $selector->setRules($rules);
 $leadController->handle($_POST);
-
-//dump("Правило возраста", $selector->chooseMainLead($ageRuleTestSet["dup"], $ageRuleTestSet["new"]));
-//dump("Правило записи", $selector->chooseMainLead($hasApptTestSet["dup"], $hasApptTestSet["new"]));
-//dump("Правило записи в прошлом", $selector->chooseMainLead($pastApptTestSet["dup"], $pastApptTestSet["new"]));
-//dump("Конфликтные", $selector->chooseMainLead($conflictRulesTestSet["dup"], $conflictRulesTestSet["new"]));
-
-
-// TODO записать плохие траи и ретрайнуть по круду раз в день

@@ -68,4 +68,9 @@ class Lead
     {
         return $this->bitrix24->deleteLead($id);
     }
+
+    public function update($fields, $leadId)
+    {
+        return $this->bitrix24->updateLead($fields, $leadId);
+    }
 }

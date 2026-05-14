@@ -16,11 +16,11 @@ class TimelineMergeService
         $this->lead = new Lead();
     }
 
-    public function merge(array $sourceIds, int $targetId): array
+    public function mergeTimeline(array $sourceIds, int $targetId): array
     {
         $this->transferTimeline($sourceIds, $targetId);
 
-        // TODO: перенос основных полей лида + создание комментария о слиянии + запись звонка
+        // TODO: перенос основных полей лида(+) | создание комментария о слиянии (-) | запись звонка (-)
         return [
             'success' => true,
             'target_id' => $targetId,

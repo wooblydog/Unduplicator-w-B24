@@ -87,21 +87,24 @@ class LeadController
             $mainId = $result['MainLead']['ID'] ?? null;
 
             if (!empty($result)) {
-//                $preparedData = $this->selector->prepareDataForTableFromResult($result);
-//                $this->sendDataToTable($preparedData);
-//                $mergeResult = $this->lead->merge($result['DuplicateData'])->result->STATUS;
-//                if ($mergeResult === 'CONFLICT') {
-//                    $this->logger->conflict("https://{$_ENV["B24_DOMAIN"]}/crm/lead/merge/?id=" . implode(",",$result['DuplicateData']));
-//                    return;
-//                }
-//                $this->logger->info("Результат работы поиска основного лида", $result);
+                $missingFields = $this->getFieldsToMerge($result);
+                if ($missingFields) $this->lead->update($missingFields, $result['MainLead']['ID']);
+
+                //TODO Merge Timeline
+                //                $preparedData = $this->selector->prepareDataForTableFromResult($result);
+                //                $this->sendDataToTable($preparedData);
+                //                $mergeResult = $this->lead->merge($result['DuplicateData'])->result->STATUS;
+                //                if ($mergeResult === 'CONFLICT') {
+                //                    $this->logger->conflict("https://{$_ENV["B24_DOMAIN"]}/crm/lead/merge/?id=" . implode(",",$result['DuplicateData']));
+                //                    return;
+                //                }
+                //                $this->logger->info("Результат работы поиска основного лида", $result);
             }
 
             if (!$mainId || empty($result['leadsToMerge'])) {
                 $this->logger->warning('Не удалось определить основного лида', ['mainId' => $mainId, 'toMerge' => $result['leadsToMerge']]);
                 return;
             }
-
         } catch (\Throwable $e) {
             $this->logger->error('Критическая ошибка обработки дублей', [
                 'leadId' => $leadId,
@@ -112,7 +115,7 @@ class LeadController
         }
     }
 
-    public function filterNonConvertedLeads($leads): array
+    private function filterNonConvertedLeads($leads): array
     {
         return array_filter($leads, function ($lead) {
             return $lead->STATUS_ID !== 'CONVERTED';
@@ -156,9 +159,57 @@ class LeadController
                 $this->logger->error("Ошибка отправки данных в таблицу: {$httpCode} — {$response}");
                 return;
             }
-
         } catch (\Exception $ex) {
             $this->logger->error("Вызвано исключение при отправки данных в таблицу: " . $ex->getMessage());
         }
+    }
+
+    private function getFieldsToMerge(array $data): array
+    {
+        $mainLead = $data['MainLead'];
+        $duplicates = $data['DuplicateFullData'] ?? [];
+
+        $fieldsToCheck = ['NAME', 'SECOND_NAME', 'LAST_NAME'];
+        $ufFields = array_filter(array_keys($mainLead), fn($key) => strpos($key, 'UF_CRM_') === 0);
+
+        $allFields = array_merge($fieldsToCheck, $ufFields);
+
+        $hasEmptyField = false;
+        foreach ($allFields as $field) {
+            if (
+                !isset($mainLead[$field]) ||
+                $mainLead[$field] === NULL ||
+                $mainLead[$field] === '' ||
+                $mainLead[$field] === []
+            ) {
+                $hasEmptyField = true;
+                break;
+            }
+        }
+
+        if (!$hasEmptyField) {
+            return [];
+        }
+
+        usort($duplicates, function ($a, $b) {
+            return strtotime($b->DATE_CREATE) - strtotime($a->DATE_CREATE);
+        });
+
+        $result = [];
+
+        foreach ($allFields as $field) {
+            if (isset($mainLead[$field]) && $mainLead[$field] !== NULL && $mainLead[$field] !== '' && $mainLead[$field] !== []) continue;
+
+            foreach ($duplicates as $duplicate) {
+                $value = $duplicate->$field ?? null;
+
+                if ($value !== NULL && $value !== '' && $value !== []) {
+                    $result[$field] = $value;
+                    break;
+                }
+            }
+        }
+
+        return $result;
     }
 }
