@@ -212,4 +212,23 @@ class LeadController
 
         return $result;
     }
+
+    private function downloadFile(string $url): string|false
+    {
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // если проблемы с SSL
+
+        // Если нужно — добавь авторизацию (cookies, headers и т.д.)
+        // curl_setopt($ch, CURLOPT_COOKIE, 'PHPSESSID=...');
+        // curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: ...']);
+
+        $data = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        return ($httpCode === 200 && $data !== false) ? $data : false;
+    }
 }

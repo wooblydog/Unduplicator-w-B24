@@ -11,6 +11,7 @@ use App\Services\Bitrix24;
 use App\Services\Lead\LeadSelector;
 use App\Services\TimelineMergeService;
 use App\Services\Logger;
+use App\Services\Bitrix24SessionManager;
 use Dotenv\Dotenv;
 
 $dotenv = Dotenv::createImmutable(__DIR__);
@@ -25,7 +26,7 @@ $selector = new LeadSelector();
 $bitrix = new Bitrix24($_ENV["B24_DOMAIN"], $_ENV["B24_ID"], $_ENV["B24_HASH"]);
 $merger = new TimelineMergeService($bitrix);
 
-// $merger->merge([30949], 1247854);
+$merger->mergeTimeline([1064879], 1247854);
 $_POST['ID'] = 1247854;
 
 $rules = [
@@ -34,7 +35,20 @@ $rules = [
 ];
 
 $selector->setRules($rules);
-$leadController->handle($_POST);
+// $leadController->handle($_POST);
+
+
+// $session = new Bitrix24SessionManager(
+//     $_ENV['B24_DOMAIN'],   // your-portal.bitrix24.ru
+//     $_ENV['BITRIX_LOGIN'],    // admin
+//     $_ENV['BITRIX_PASSWORD']  // password123
+// );
+
+// $session->login();
+
+// $fileUrl = 'https://ud-rus.ru/bitrix/tools/crm_show_file.php?fileId=4752230&ownerTypeId=6&ownerId=8670411&auth=';
+// $session->downloadFile($fileUrl, __DIR__ . '/storage/recording.mp3');
+
 
 // dd("Правило возраста", $selector->prepareDataForTableFromResult($selector->chooseMainLead($ageRuleTestSet["dup"], $ageRuleTestSet["new"])));
 //dump("Правило записи", $selector->chooseMainLead($hasApptTestSet["dup"], $hasApptTestSet["new"]));

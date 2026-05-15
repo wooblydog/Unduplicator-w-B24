@@ -3,17 +3,21 @@
 namespace App\Services;
 
 use App\Models\Lead;
+use App\Services\Bitrix24SessionManager;
+
 
 class TimelineMergeService
 {
     private Bitrix24 $bitrix;
     private Lead $lead;
     private string $phone;
+    private Bitrix24SessionManager $session;
 
     public function __construct(Bitrix24 $bitrix)
     {
         $this->bitrix = $bitrix;
         $this->lead = new Lead();
+        $this->session = new Bitrix24SessionManager($_ENV['B24_DOMAIN'], $_ENV['BITRIX_LOGIN'], $_ENV['BITRIX_PASSWORD']);
     }
 
     public function mergeTimeline(array $sourceIds, int $targetId): array
@@ -181,15 +185,61 @@ class TimelineMergeService
 
         $this->bitrix->externalCallFinish($finishData);
 
+        // ==========================================
+        // Обработка файла записи звонка
+        // ==========================================
         if (!empty($act->FILES) && !empty($act->FILES[0]->url)) {
+            $localFilePath = null; // Объявляем здесь, чтобы была доступна в блоках catch и finally
+
             try {
-                $this->bitrix->externalCallAttachRecord(
+                $uniqueFileName = $this->generateUniqueFileName($act->ID);
+
+                // 1. Формируем правильный абсолютный путь до папки downloads
+                $downloadsDir = dirname(__DIR__, 2) . '/storage/downloads';
+
+                // 2. Создаем папку, если её вдруг нет
+                if (!is_dir($downloadsDir)) {
+                    mkdir($downloadsDir, 0755, true);
+                }
+
+                // 3. Полный путь к файлу
+                $localFilePath = $downloadsDir . '/' . $uniqueFileName . '.mp3';
+
+                // 4. Скачиваем файл (убрали ошибочный префикс __DIR__)
+                $this->session->downloadFile($act->FILES[0]->url, $localFilePath);
+
+                // 5. Защита от "битых" скачиваний
+                if (!file_exists($localFilePath) || filesize($localFilePath) === 0) {
+                    throw new \Exception("Файл не скачался или имеет нулевой размер");
+                }
+
+                // 6. Читаем файл и кодируем в base64
+                $fileContent = base64_encode(file_get_contents($localFilePath));
+
+                // 7. Отправляем в Битрикс (обязательно передаем расширение .mp3 в имени)
+                $attachResult = $this->bitrix->externalCallAttachRecord(
                     $callId,
-                    $act->FILES[0]->url,
-                    'record_' . $act->ID . '.mp3'
+                    $fileContent,
+                    $uniqueFileName . '.mp3'
                 );
+
+                // 8. Проверяем успешность загрузки
+                if (empty($attachResult->result->FILE_ID)) {
+                    throw new \Exception('FILE_ID не получен в ответе от сервера');
+                }
             } catch (\Exception $e) {
-                $this->bitrix->addComment($targetId, 'lead', "Не удалось прикрепить запись звонка, прямая ссылка для скачивания: " . $act->FILES[0]->url ?? '');
+                // Если что-то пошло не так на любом этапе — пишем комментарий в лид
+                $this->bitrix->addComment(
+                    $targetId,
+                    'lead',
+                    "Не удалось прикрепить запись звонка: {$e->getMessage()}. Прямая ссылка: " . ($act->FILES[0]->url ?? '')
+                );
+            } finally {
+                // 9. Блок finally выполняется ВСЕГДА (и при успехе, и при ошибке)
+                // Идеальное место для уборки за собой.
+                if (!empty($localFilePath) && file_exists($localFilePath)) {
+                    unlink($localFilePath);
+                }
             }
         }
     }
@@ -208,11 +258,17 @@ class TimelineMergeService
         return $m[0] ?? '';
     }
 
-    private function deleteDuplicates(array $duplicateIds)
+    public function deleteLocalFile(string $filePath): bool
     {
-        foreach ($duplicateIds as $duplicateId) {
-            $this->lead->delete($duplicateId);
+        if (file_exists($filePath)) {
+            return unlink($filePath);
         }
+
+        return false;
     }
 
+    private function generateUniqueFileName(int $activityId): string
+    {
+        return sprintf('call_record_%d_%d.mp3', $activityId, time());
+    }
 }

@@ -251,8 +251,7 @@ class Bitrix24
                 'REGISTER_SONET_EVENT' => 'Y'
             ],
         ]);
-        $res = $this->cUrl($method, $queryData);
-        return $res->result;
+        return $this->cUrl($method, $queryData);
     }
 
     /**
@@ -773,50 +772,20 @@ class Bitrix24
     }
 
     /**
-     * Прикрепление записи звонка (заглушка на будущее)
-     */
-    /**
      * Прикрепить запись звонка
      */
-    public function externalCallAttachRecord(string $callId, string $fileUrl, string $fileName = ''): object
+    public function externalCallAttachRecord(string $callId, string $fileContent, string $fileName = 'record.mp3'): object
     {
-        // Скачиваем файл
-        $fileContent = $this->downloadFile($fileUrl);
-
-        if ($fileContent === false) {
-            throw new \Exception("Не удалось скачать запись звонка: " . $fileUrl);
-        }
-
         $method = "telephony.externalCall.attachRecord";
 
         $data = [
             "CALL_ID"     => $callId,
-            "FILENAME"    => $fileName ?: basename(parse_url($fileUrl, PHP_URL_PATH)) ?: 'record.mp3',
+            "FILENAME"    => $fileName ?: 'record.mp3',
             "FILE_CONTENT"=> base64_encode($fileContent),
         ];
 
         $queryData = http_build_query($data);
 
         return $this->cUrl($method, $queryData);
-    }
-
-    //TODO подумать над скачиванием как реализовать
-    private function downloadFile(string $url): string|false
-    {
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // если проблемы с SSL
-
-        // Если нужно — добавь авторизацию (cookies, headers и т.д.)
-        // curl_setopt($ch, CURLOPT_COOKIE, 'PHPSESSID=...');
-        // curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: ...']);
-
-        $data = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        return ($httpCode === 200 && $data !== false) ? $data : false;
     }
 }
