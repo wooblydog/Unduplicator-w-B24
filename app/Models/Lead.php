@@ -7,16 +7,11 @@ use App\Services\Bitrix24;
 class Lead
 {
     private Bitrix24 $bitrix24;
+    private mixed $protectedFields;
 
     public function __construct()
     {
         $this->bitrix24 = new Bitrix24($_ENV["B24_DOMAIN"], $_ENV["B24_ID"], $_ENV["B24_HASH"]);
-    }
-
-    public function create($data): int|bool
-    {
-        $result = $this->bitrix24->addLead($_ENV["B24_RESPONIBLE_ID"], $data);
-        return is_int($result) ? $result : false;
     }
 
     public function get(int $id): object
@@ -34,18 +29,7 @@ class Lead
         while ($start !== null) {
             $page = $this->bitrix24->getLeads(
                 ["@ID" => $ids],
-                [
-                    "ID",
-                    "NAME",
-                    "SECOND_NAME",
-                    "LAST_NAME",
-                    "STATUS_ID",
-                    "DATE_CREATE",
-                    "UF_CRM_1668339568358",  //Дата время записи
-                    "UF_CRM_1727328936",     // Диагноз
-                    "UF_CRM_1668352823231",  // Год рождения
-                    "UF_CRM_1635751283979",  // Город
-                ],
+                ["*", 'UF_CRM_1668339568358', 'UF_CRM_1727328936', 'UF_CRM_1668352823231', 'UF_CRM_1635751283979', 'UF_CRM_1726815456024',],
                 $start
             );
 
@@ -64,13 +48,13 @@ class Lead
         return array_filter($leads, fn($id) => $id !== $excludeId);
     }
 
-    public function delete($id)
+    public function update($leadId, $fields)
     {
-        return $this->bitrix24->deleteLead($id);
+        return $this->bitrix24->updateLead($leadId, $fields);
     }
 
-    public function update($fields, $leadId)
+    public function merge($ids)
     {
-        return $this->bitrix24->updateLead($fields, $leadId);
+        return $this->bitrix24->mergeLeads($ids);
     }
 }

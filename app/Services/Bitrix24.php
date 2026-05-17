@@ -248,7 +248,7 @@ class Bitrix24
             'id' => $leadId,
             'fields' => $fields,
             'params' => [
-                'REGISTER_SONET_EVENT' => 'Y'
+                'REGISTER_SONET_EVENT' => 'N'
             ],
         ]);
         return $this->cUrl($method, $queryData);
@@ -329,7 +329,7 @@ class Bitrix24
 
     /**
      * @param array $filter
-     * @param array $select
+     * @param array|string $select
      * @return stdClass[]|null
      */
     public function getLeads($filter, $select, $start = 0)
@@ -358,7 +358,7 @@ class Bitrix24
         return $this->cUrl($method, $queryData);
     }
 
-    public function mergeLeads($ids)
+    public function mergeLeads(array $ids)
     {
         $method = 'crm.entity.mergeBatch';
         $queryData = http_build_query([
@@ -446,18 +446,16 @@ class Bitrix24
         return $res->result;
     }
 
-    public function getOnlineUsers($id)
+    public function getUserById($id)
     {
         $method = 'user.get';
         $queryData = http_build_query([
             'FILTER' => [
                 'ID' => $id,
-                'IS_ONLINE' => 'Y',
             ],
         ]);
 
-        $res = $this->cUrl($method, $queryData);
-        return $res->result;
+        return $this->cUrl($method, $queryData);
     }
 
 
@@ -781,7 +779,7 @@ class Bitrix24
         $data = [
             "CALL_ID"     => $callId,
             "FILENAME"    => $fileName ?: 'record.mp3',
-            "FILE_CONTENT"=> base64_encode($fileContent),
+            "FILE_CONTENT"=> $fileContent,
         ];
 
         $queryData = http_build_query($data);

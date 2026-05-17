@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Models\Lead;
 use App\Services\Bitrix24SessionManager;
 
-
+//Deprecated
 class TimelineMergeService
 {
     private Bitrix24 $bitrix;
@@ -157,8 +157,11 @@ class TimelineMergeService
     {
         $this->phone = $this->extractPhoneFromSubject($act->SUBJECT ?? '');
 
+        $callTime = strtotime($act->END_TIME) - strtotime($act->START_TIME);
+        if ($callTime < 10) return;
+
         $registerData = [
-            "USER_ID" => $act->RESPONSIBLE_ID ?? 1,
+            "USER_ID" => $this->isUserActive($act->RESPONSIBLE_ID) ? $act->RESPONSIBLE_ID : 3201,
             "PHONE_NUMBER" => $this->phone,
             "TYPE" => 1,
             "CRM_CREATE" => 0,
@@ -175,68 +178,47 @@ class TimelineMergeService
 
         $callId = $regResult->result->CALL_ID;
 
-        $finishData = [
+        $this->bitrix->externalCallFinish([
             "CALL_ID" => $callId,
-            "USER_ID" => $act->RESPONSIBLE_ID ?? 1,
-            "DURATION" => 60,
+            "USER_ID" => $this->isUserActive($act->RESPONSIBLE_ID) ? $act->RESPONSIBLE_ID : 3201,
+            "DURATION" => $callTime,
             "STATUS_CODE" => "200",
             "ADD_TO_CHAT" => "Y",
-        ];
+        ]);
 
-        $this->bitrix->externalCallFinish($finishData);
-
-        // ==========================================
-        // Обработка файла записи звонка
-        // ==========================================
         if (!empty($act->FILES) && !empty($act->FILES[0]->url)) {
-            $localFilePath = null; // Объявляем здесь, чтобы была доступна в блоках catch и finally
+            $localFilePath = null;
 
             try {
                 $uniqueFileName = $this->generateUniqueFileName($act->ID);
 
-                // 1. Формируем правильный абсолютный путь до папки downloads
-                $downloadsDir = dirname(__DIR__, 2) . '/storage/downloads';
+                $downloadsDir = dirname(__DIR__, 2) . '/storage';
 
-                // 2. Создаем папку, если её вдруг нет
                 if (!is_dir($downloadsDir)) {
                     mkdir($downloadsDir, 0755, true);
                 }
 
-                // 3. Полный путь к файлу
                 $localFilePath = $downloadsDir . '/' . $uniqueFileName . '.mp3';
 
-                // 4. Скачиваем файл (убрали ошибочный префикс __DIR__)
                 $this->session->downloadFile($act->FILES[0]->url, $localFilePath);
-
-                // 5. Защита от "битых" скачиваний
-                if (!file_exists($localFilePath) || filesize($localFilePath) === 0) {
+                if (!file_exists($localFilePath) || filesize($localFilePath) < 50) {
                     throw new \Exception("Файл не скачался или имеет нулевой размер");
                 }
 
-                // 6. Читаем файл и кодируем в base64
                 $fileContent = base64_encode(file_get_contents($localFilePath));
 
-                // 7. Отправляем в Битрикс (обязательно передаем расширение .mp3 в имени)
-                $attachResult = $this->bitrix->externalCallAttachRecord(
-                    $callId,
-                    $fileContent,
-                    $uniqueFileName . '.mp3'
-                );
+                $attachResult = $this->bitrix->externalCallAttachRecord($callId, $fileContent, $uniqueFileName . '.mp3');
 
-                // 8. Проверяем успешность загрузки
                 if (empty($attachResult->result->FILE_ID)) {
                     throw new \Exception('FILE_ID не получен в ответе от сервера');
                 }
             } catch (\Exception $e) {
-                // Если что-то пошло не так на любом этапе — пишем комментарий в лид
                 $this->bitrix->addComment(
                     $targetId,
                     'lead',
                     "Не удалось прикрепить запись звонка: {$e->getMessage()}. Прямая ссылка: " . ($act->FILES[0]->url ?? '')
                 );
             } finally {
-                // 9. Блок finally выполняется ВСЕГДА (и при успехе, и при ошибке)
-                // Идеальное место для уборки за собой.
                 if (!empty($localFilePath) && file_exists($localFilePath)) {
                     unlink($localFilePath);
                 }
@@ -258,17 +240,13 @@ class TimelineMergeService
         return $m[0] ?? '';
     }
 
-    public function deleteLocalFile(string $filePath): bool
-    {
-        if (file_exists($filePath)) {
-            return unlink($filePath);
-        }
-
-        return false;
-    }
-
     private function generateUniqueFileName(int $activityId): string
     {
         return sprintf('call_record_%d_%d.mp3', $activityId, time());
+    }
+
+    private function isUserActive($id)
+    {
+        return $this->bitrix->getUserById($id)->result[0]->ACTIVE;
     }
 }

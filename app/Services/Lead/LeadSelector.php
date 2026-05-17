@@ -2,13 +2,17 @@
 
 namespace App\Services\Lead;
 
+use App\Models\Lead;
+
 class LeadSelector
 {
     private array $rules;
+    private $leadRepo;
 
     public function setRules(array $rules): void
     {
         $this->rules = $rules;
+        $this->leadRepo = new Lead();
     }
 
     public function chooseMainLead(array $duplicates, $newLead): array
@@ -17,11 +21,17 @@ class LeadSelector
             $newLead = (object)$newLead;
         }
 
+        foreach ($duplicates as &$dup) {
+            if (is_array($dup)) {
+                $dup = (object)$dup;
+            }
+        }
+        unset($dup);
+
         $bestLead = $this->findBestLead($duplicates, $newLead);
 
         return $this->buildResult($bestLead, $newLead, $duplicates);
     }
-
     /**
      * Находит лучший лид по количеству сработавших правил
      */
@@ -29,13 +39,9 @@ class LeadSelector
     {
         $bestLead = $newLead;
         $bestScore = 0;
+        $duplicates[] = $newLead;
 
         foreach ($duplicates as $oldLead) {
-
-            if (is_array($oldLead)) {
-                $oldLead = (object)$oldLead;
-            }
-
             $score = 0;
 
             foreach ($this->rules as $rule) {
@@ -48,7 +54,7 @@ class LeadSelector
                 $bestScore = $score;
                 $bestLead = $oldLead;
             } elseif ($score === $bestScore && $score > 0) {
-                if (strtotime($oldLead->DATE_CREATE) < strtotime($bestLead->DATE_CREATE)) {
+                if (strtotime($oldLead->DATE_CREATE ?? '1970-01-01') < strtotime($bestLead->DATE_CREATE ?? '1970-01-01')) {
                     $bestLead = $oldLead;
                 }
             }
@@ -71,8 +77,9 @@ class LeadSelector
             $duplicateIDs[] = $item->ID ?? null;
         }
 
+        $fullBestLead = $this->leadRepo->get($bestLead->ID);
         return [
-            'MainLead' => (array)$bestLead,
+            'MainLead' => (array)$fullBestLead,
             'leadsToMerge' => array_column($toMerge, 'ID'),
             'DuplicateData' => $duplicateIDs,
             'DuplicateFullData' => $toMerge,

@@ -7,6 +7,8 @@ use App\Models\Lead;
 use App\Rules\AppointmentInFutureRule;
 use App\Rules\CreatedLessThan24hRule;
 
+use App\Rules\HasAppointmentRule;
+use App\Services\DuplicatesCleaner;
 use App\Services\Lead\LeadSelector;
 use App\Services\Logger;
 
@@ -16,7 +18,7 @@ class LeadController
     private Lead $lead;
     private LeadSelector $selector;
     private array $rules;
-    private array $neededKeys;
+    private DuplicatesCleaner $duplicatesCleaner;
 
     public function __construct()
     {
@@ -26,20 +28,9 @@ class LeadController
         $this->rules = [
             new CreatedLessThan24hRule(),
             new AppointmentInFutureRule(),
+            new HasAppointmentRule(),
         ];
-        $this->neededKeys = [
-            'ID',
-            'NAME',
-            'SECOND_NAME',
-            'LAST_NAME',
-            'STATUS_ID',
-            'DATE_CREATE',
-            'UF_CRM_1668339568358', // Дата и время приема
-            'UF_CRM_1727328936', // Диагноз
-            'UF_CRM_1668352823231', // Возраст
-            'UF_CRM_1635751283979', // Город
-            'UF_CRM_1726815456024', // Табличный идентификатор
-        ];
+        $this->duplicatesCleaner = new DuplicatesCleaner();
     }
 
     public function handle(array $request): void
@@ -70,7 +61,6 @@ class LeadController
                 $this->logger->notice('Дубли не найдены', ['leadId' => $leadId,]);
                 return;
             }
-
             $duplicates = $this->lead->getAll($dupeIds);
             $nonConverted = $this->filterNonConvertedLeads($duplicates);
 
@@ -80,25 +70,15 @@ class LeadController
             }
 
             $this->selector->setRules($this->rules);
-            $lead = array_intersect_key($lead, array_flip($this->neededKeys));
-            $newLeadObj = (object)$lead;
-
-            $result = $this->selector->chooseMainLead($nonConverted, $newLeadObj);
+            $result = $this->selector->chooseMainLead($nonConverted, $lead);
             $mainId = $result['MainLead']['ID'] ?? null;
 
             if (!empty($result)) {
-                $missingFields = $this->getFieldsToMerge($result);
-                if ($missingFields) $this->lead->update($missingFields, $result['MainLead']['ID']);
+               $this->duplicatesCleaner->clearDuplicates($result);
+//               $preparedData = $this->selector->prepareDataForTableFromResult($result);
+//               $this->sendDataToTable($preparedData);
+               dump($this->lead->merge($result['DuplicateData']));
 
-                //TODO Merge Timeline
-                //                $preparedData = $this->selector->prepareDataForTableFromResult($result);
-                //                $this->sendDataToTable($preparedData);
-                //                $mergeResult = $this->lead->merge($result['DuplicateData'])->result->STATUS;
-                //                if ($mergeResult === 'CONFLICT') {
-                //                    $this->logger->conflict("https://{$_ENV["B24_DOMAIN"]}/crm/lead/merge/?id=" . implode(",",$result['DuplicateData']));
-                //                    return;
-                //                }
-                //                $this->logger->info("Результат работы поиска основного лида", $result);
             }
 
             if (!$mainId || empty($result['leadsToMerge'])) {
@@ -162,73 +142,5 @@ class LeadController
         } catch (\Exception $ex) {
             $this->logger->error("Вызвано исключение при отправки данных в таблицу: " . $ex->getMessage());
         }
-    }
-
-    private function getFieldsToMerge(array $data): array
-    {
-        $mainLead = $data['MainLead'];
-        $duplicates = $data['DuplicateFullData'] ?? [];
-
-        $fieldsToCheck = ['NAME', 'SECOND_NAME', 'LAST_NAME'];
-        $ufFields = array_filter(array_keys($mainLead), fn($key) => strpos($key, 'UF_CRM_') === 0);
-
-        $allFields = array_merge($fieldsToCheck, $ufFields);
-
-        $hasEmptyField = false;
-        foreach ($allFields as $field) {
-            if (
-                !isset($mainLead[$field]) ||
-                $mainLead[$field] === NULL ||
-                $mainLead[$field] === '' ||
-                $mainLead[$field] === []
-            ) {
-                $hasEmptyField = true;
-                break;
-            }
-        }
-
-        if (!$hasEmptyField) {
-            return [];
-        }
-
-        usort($duplicates, function ($a, $b) {
-            return strtotime($b->DATE_CREATE) - strtotime($a->DATE_CREATE);
-        });
-
-        $result = [];
-
-        foreach ($allFields as $field) {
-            if (isset($mainLead[$field]) && $mainLead[$field] !== NULL && $mainLead[$field] !== '' && $mainLead[$field] !== []) continue;
-
-            foreach ($duplicates as $duplicate) {
-                $value = $duplicate->$field ?? null;
-
-                if ($value !== NULL && $value !== '' && $value !== []) {
-                    $result[$field] = $value;
-                    break;
-                }
-            }
-        }
-
-        return $result;
-    }
-
-    private function downloadFile(string $url): string|false
-    {
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // если проблемы с SSL
-
-        // Если нужно — добавь авторизацию (cookies, headers и т.д.)
-        // curl_setopt($ch, CURLOPT_COOKIE, 'PHPSESSID=...');
-        // curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: ...']);
-
-        $data = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        return ($httpCode === 200 && $data !== false) ? $data : false;
     }
 }
