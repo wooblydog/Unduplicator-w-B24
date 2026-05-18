@@ -19,6 +19,7 @@ class LeadController
     private LeadSelector $selector;
     private array $rules;
     private DuplicatesCleaner $duplicatesCleaner;
+    private string $uuidField;
 
     public function __construct()
     {
@@ -31,6 +32,7 @@ class LeadController
             new HasAppointmentRule(),
         ];
         $this->duplicatesCleaner = new DuplicatesCleaner();
+        $this->uuidField = 'UF_CRM_1726815456024';
     }
 
     public function handle(array $request): void
@@ -74,11 +76,9 @@ class LeadController
             $mainId = $result['MainLead']['ID'] ?? null;
 
             if (!empty($result)) {
-               $this->duplicatesCleaner->clearDuplicates($result);
-//               $preparedData = $this->selector->prepareDataForTableFromResult($result);
-//               $this->sendDataToTable($preparedData);
-               dump($this->lead->merge($result['DuplicateData']));
-
+                $this->duplicatesCleaner->clearDuplicates($result);
+                $this->sendDataToTable($this->selector->prepareDataForTableFromResult($result));
+                $this->lead->merge($result['DuplicateData']);
             }
 
             if (!$mainId || empty($result['leadsToMerge'])) {
@@ -102,19 +102,14 @@ class LeadController
         });
     }
 
-    private function sendDataToTable(array $preparedData)
+    private function sendDataToTable(array $preparedData): void
     {
         try {
-            if (empty($preparedData)) {
-                $this->logger->error("Ошибка отправки данных в таблицу. Список лидов пуст");
-                return;
-            }
+            $mainLeadGuid = $preparedData['MainLead']['Uid'];
+            $mainLeadId = $preparedData['MainLead']['Id'];
 
-            $mainLeadGuid = $preparedData['MainLead']['Uid'] ?? '';
-            $mainLeadId = $preparedData['MainLead']['Id'] ?? 0;
-
-            if (empty($mainLeadGuid)) {
-                $this->logger->info("Пропускаю отправку данных в таблицу. MainLead {$mainLeadId} с пустым табличным идентификатором.");
+            if ($mainLeadGuid == "00000000-0000-0000-0000-000000000000") {
+                $this->logger->info("Пропускаю отправку данных в таблицу. MainLead $mainLeadId с пустым табличным идентификатором.");
                 return;
             }
 
@@ -135,8 +130,7 @@ class LeadController
             curl_close($ch);
 
             if ($httpCode < 200 || $httpCode >= 300) {
-                $this->logger->info("Не удалось отправить данные в таблицу: {$httpCode}");
-                $this->logger->error("Ошибка отправки данных в таблицу: {$httpCode} — {$response}");
+                $this->logger->error("Ошибка отправки данных в таблицу: $httpCode — $response");
                 return;
             }
         } catch (\Exception $ex) {

@@ -90,18 +90,19 @@ class LeadSelector
     {
         $preparedData = [
             'MainLead' => [
-                'Id' => $duplicateData['MainLead']['ID'],
-                'Uid' => $duplicateData['MainLead']['UF_CRM_1726815456024'] ?? '',
+                'Id'  => $duplicateData['MainLead']['ID'],
+                'Uid' => $duplicateData['MainLead']['UF_CRM_1726815456024'] ?? '00000000-0000-0000-0000-000000000000',
             ],
             'Duplicates' => []
         ];
 
         foreach ($duplicateData['DuplicateFullData'] as $duple) {
             $preparedData['Duplicates'][] = [
-                'Id' => $duple->ID,
-                'Uid' => $duple->UF_CRM_1726815456024 ?? '',
+                'Id'  => is_object($duple) ? $duple->ID : $duple['ID'],
+                'Uid' => is_object($duple) ? ($duple->UF_CRM_1726815456024 ?? '00000000-0000-0000-0000-000000000000') : ($duple['UF_CRM_1726815456024'] ?? '00000000-0000-0000-0000-000000000000'),
             ];
         }
+
         return $preparedData;
     }
 }
