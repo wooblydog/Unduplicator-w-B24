@@ -19,7 +19,6 @@ class LeadController
     private LeadSelector $selector;
     private array $rules;
     private DuplicatesCleaner $duplicatesCleaner;
-    private string $uuidField;
 
     public function __construct()
     {
@@ -32,7 +31,6 @@ class LeadController
             new HasAppointmentRule(),
         ];
         $this->duplicatesCleaner = new DuplicatesCleaner();
-        $this->uuidField = 'UF_CRM_1726815456024';
     }
 
     public function handle(array $request): void
@@ -46,7 +44,7 @@ class LeadController
         $this->logger->notice("Входящий лид", $leadId);
 
         try {
-            $lead = (array)$this->lead->get($leadId);
+            $lead = (array) $this->lead->get($leadId);
             if (empty($lead)) {
                 $this->logger->error('Лид не найден', ['leadId' => $leadId]);
                 return;
@@ -77,8 +75,15 @@ class LeadController
 
             if (!empty($result)) {
                 $this->duplicatesCleaner->clearDuplicates($result);
+                dump($mergeResult = $this->lead->merge($result['DuplicateData'])); 
+                $result['MainLead'] = (array) $this->lead->get($mainId); // Перед отправкой актуализируется инфа о резлультате слияния
+
                 $this->sendDataToTable($this->selector->prepareDataForTableFromResult($result));
-                $this->lead->merge($result['DuplicateData']);
+                if ($mergeResult->result->STATUS == "CONFLICT"){
+                    $this->logger->error("При объедиенении произошел конфликт, подробнее в conflicts.log");
+                    $this->logger->conflict("https://{$_ENV["B24_DOMAIN"]}/crm/lead/merge/?id=" . implode(",",$result['DuplicateData']));
+                    return;
+                }
             }
 
             if (!$mainId || empty($result['leadsToMerge'])) {
@@ -108,7 +113,9 @@ class LeadController
             $mainLeadGuid = $preparedData['MainLead']['Uid'];
             $mainLeadId = $preparedData['MainLead']['Id'];
 
-            if ($mainLeadGuid == "00000000-0000-0000-0000-000000000000") {
+            $this->logger->info("Отправка в таблицу", $preparedData);
+
+            if ($mainLeadGuid == "00000000-0000-0000-0000-000000000000" || empty($mainLeadGuid)) {
                 $this->logger->info("Пропускаю отправку данных в таблицу. MainLead $mainLeadId с пустым табличным идентификатором.");
                 return;
             }

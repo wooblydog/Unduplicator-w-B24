@@ -31,9 +31,10 @@ class DuplicatesCleaner
             'UF_CRM_1726815456024', // Табличный идентификатор
         ];
         $this->blockedFields = [
-            'PHONE',
+            // 'PHONE', Временно убрал, чтобы номер тф переносился, т.к. конфликт из-за того что не перенесся (там "+" появился)
             'EMAIL',
             'TITLE',
+            'STATUS_ID'
         ];
     }
 
@@ -76,9 +77,7 @@ class DuplicatesCleaner
             $result = $this->lead->update($mainLeadId, $updateFields);
 
             if (isset($result->error_description)) {
-                $this->logger->error("Ошибка обогащения основного лида {$mainLeadId}", [
-                    'error' => $result->error_description
-                ]);
+                $this->logger->error("Ошибка обогащения основного лида {$mainLeadId}", $result);
             } else {
                 $this->logger->info("Основной лид {$mainLeadId} успешно обогащён");
             }
@@ -95,9 +94,10 @@ class DuplicatesCleaner
             }
 
             if (str_starts_with($field, 'PARENT_ID_')) {
-                $fieldsToCopy[$field] = null;
+                $fieldsToCopy[$field] = "";
                 continue;
             }
+
 
             $fieldsToCopy[$field] = is_null($value) ? '' : $value;
         }
@@ -146,5 +146,4 @@ class DuplicatesCleaner
 
         return $leadsData[0][$field] ?? '';
     }
-
 }
