@@ -21,9 +21,24 @@ $router->addRoute('GET', '^/api/status$', function () {
 });
 
 $router->addRoute('GET', '^/', function () {
-    header('HTTP/1.1 200 OK');
+    throw new \Exception ("Bad request", 400);
 });
 
 $router->addRoute('POST', '.*', function () {
     throw new \Exception ("Method not allowed", 405);
 });
+
+$router->addRoute('GET', '/api/run.undup$', function ($request) {
+    echo "It works!";
+});
+
+$router->addRoute('GET', '/api/status$', function () {
+    echo "Status OK";
+});
+
+// Корень проекта (с учетом подпапок)
+$router->addRoute('GET', 'Undup-v2/$', function () {
+    echo "Main Page";
+});
+
+return $router;

@@ -14,21 +14,38 @@ class Router
         ];
     }
 
-    public function dispatch(string $method, string $uri)
+    /**
+     * @throws \Exception
+     */
+    public function dispatch(string $method, string $uri, $request)
     {
+        $uri = parse_url($uri, PHP_URL_PATH);
+
+        $apiPos = strpos($uri, '/api/');
+        if ($apiPos !== false) {
+            $uri = substr($uri, $apiPos);
+        }
+
+        $pathMatched = false;
+
         foreach ($this->routes as $route) {
-            if ($route['method'] === $method && preg_match($route['pattern'], $uri, $matches)) {
-                array_shift($matches);
-                return call_user_func_array($route['handler'], $matches);
-            }
-            if ($route['pattern'] === null) {
-                throw new \Exception ('Not found', 404);
-            }
-            if ($route['method'] === "POST") {
-                throw new \Exception ('Method not allowed', 405);
+            $pattern = '#^' . $route['pattern'] . '$#';
+
+            if (preg_match($pattern, $uri, $matches)) {
+                $pathMatched = true;
+
+                if ($route['method'] === $method) {
+                    array_shift($matches);
+                    return call_user_func_array($route['handler'], [$request, ...$matches]);
+                }
             }
         }
-        throw new \Exception ('Not found', 404);
+
+        if ($pathMatched) {
+            throw new \Exception('Method not allowed', 405);
+        }
+
+        throw new \Exception("Not found", 404);
     }
 }
 

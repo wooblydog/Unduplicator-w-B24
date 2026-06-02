@@ -35,6 +35,7 @@ class LeadController
 
     public function handle(array $request): void
     {
+        dd('done');
         $this->logger->notice("");
         $leadId = (int)($request['ID'] ?? 0);
         if ($leadId <= 0) {

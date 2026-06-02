@@ -1,17 +1,17 @@
 <?php
 require __DIR__ . '/vendor/autoload.php';
 
-use App\Controllers\LeadController;
+$router = require __DIR__ . '/app/config/routes.php';
+
 use Dotenv\Dotenv;
 
 $dotenv = Dotenv::createImmutable(__DIR__);
 $dotenv->load();
 
 try {
-    $router = require __DIR__ . '/config/routes.php';
     $response = $router->dispatch($_SERVER['REQUEST_METHOD'], $_SERVER['REQUEST_URI'], $_GET);
-    http_response_code($response->getStatusCode());
-    echo $response->getContent();
+//    http_response_code($response->getStatusCode());
+//    echo $response->getContent();
 } catch (Exception $e) {
     http_response_code($e->getCode() ?: 500);
     echo json_encode(['error' => $e->getMessage()]);
