@@ -2,17 +2,23 @@
 
 namespace App\Rules;
 
-use DateTimeImmutable;
-
+/**
+ * Правило для проверки создания по диаграмме
+ * Если лид создан в <24 тогда новый, иначе продолжаем проверку
+ */
 class CreatedLessThan24hRule implements LeadRuleInterface
 {
     private const ONE_DAY_SECONDS = 86400;
 
-    public function preferOldLead(object|array $oldLead, object|array $newLead): bool
+    public function decide(object $oldLead, object $newLead): ?bool
     {
         $created = strtotime($oldLead->DATE_CREATE ?? 'now');
-        $now     = time();
+        $now = time();
 
-        return ($now - $created) <= self::ONE_DAY_SECONDS;
+        if (($now - $created) <= self::ONE_DAY_SECONDS) {
+            return true;
+        }
+
+        return null;
     }
 }

@@ -8,7 +8,7 @@ class BlacklistRule implements LeadRuleInterface
 {
     private int $blacklistStatusId = 29;
 
-    public function preferOldLead(object|array $oldLead, object|array $newLead): bool
+    public function decide(object|array $oldLead, object|array $newLead): bool
     {
         $result = ($oldLead['STATUS_ID'] ?? null) == $this->blacklistStatusId;
         return $result;

@@ -37,30 +37,41 @@ class LeadSelector
      */
     private function findBestLead(array $duplicates, object $newLead): object
     {
-        $bestLead = $newLead;
-        $bestScore = 0;
-        $duplicates[] = $newLead;
+        $validOldLeads = [];
 
         foreach ($duplicates as $oldLead) {
-            $score = 0;
+            $oldLeadWins = false;
 
             foreach ($this->rules as $rule) {
-                if ($rule->preferOldLead($oldLead, $newLead)) {
-                    $score++;
+                $decision = $rule->decide($oldLead, $newLead);
+
+                if ($decision === true) {
+                    $oldLeadWins = true;
+                    break;
+                }
+                elseif ($decision === false) {
+                    break;
                 }
             }
 
-            if ($score > $bestScore) {
-                $bestScore = $score;
-                $bestLead = $oldLead;
-            } elseif ($score === $bestScore && $score > 0) {
-                if (strtotime($oldLead->DATE_CREATE ?? '1970-01-01') < strtotime($bestLead->DATE_CREATE ?? '1970-01-01')) {
-                    $bestLead = $oldLead;
-                }
+            if ($oldLeadWins) {
+                $validOldLeads[] = $oldLead;
             }
         }
 
-        return $bestLead;
+        if (empty($validOldLeads)) {
+            return $newLead;
+        }
+
+        if (count($validOldLeads) === 1) {
+            return $validOldLeads[0];
+        }
+
+        usort($validOldLeads, function($a, $b) {
+            return strtotime($a->DATE_CREATE ?? 'now') <=> strtotime($b->DATE_CREATE ?? 'now');
+        });
+
+        return $validOldLeads[0];
     }
 
     private function buildResult(object $bestLead, object $newLead, array $duplicates): array
@@ -77,7 +88,7 @@ class LeadSelector
             $duplicateIDs[] = $item->ID ?? null;
         }
 
-        $fullBestLead = $this->leadRepo->get($bestLead->ID);
+        $fullBestLead =  $bestLead;
         return [
             'MainLead' => (array)$fullBestLead,
             'leadsToMerge' => array_column($toMerge, 'ID'),

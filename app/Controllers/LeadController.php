@@ -4,10 +4,10 @@ namespace App\Controllers;
 
 use App\Models\Lead;
 
-use App\Rules\AppointmentInFutureRule;
+use App\Rules\AppointmentTimeRule;
 use App\Rules\CreatedLessThan24hRule;
-
 use App\Rules\HasAppointmentRule;
+
 use App\Services\DuplicatesCleaner;
 use App\Services\Lead\LeadSelector;
 use App\Services\Logger;
@@ -27,15 +27,14 @@ class LeadController
         $this->selector = new LeadSelector();
         $this->rules = [
             new CreatedLessThan24hRule(),
-            new AppointmentInFutureRule(),
             new HasAppointmentRule(),
+            new AppointmentTimeRule(),
         ];
         $this->duplicatesCleaner = new DuplicatesCleaner();
     }
 
     public function handle(array $request): void
     {
-        dd('done');
         $this->logger->notice("");
         $leadId = (int)($request['ID'] ?? 0);
         if ($leadId <= 0) {
@@ -76,11 +75,12 @@ class LeadController
 
             if (!empty($result)) {
                 $this->duplicatesCleaner->clearDuplicates($result);
-                dump($mergeResult = $this->lead->merge($result['DuplicateData'])); 
+                dump($mergeResult = $this->lead->merge($result['DuplicateData']));
                 $result['MainLead'] = (array) $this->lead->get($mainId); // Перед отправкой актуализируется инфа о резлультате слияния
 
-                $this->sendDataToTable($this->selector->prepareDataForTableFromResult($result));
+//                $this->sendDataToTable($this->selector->prepareDataForTableFromResult($result));
                 if ($mergeResult->result->STATUS == "CONFLICT"){
+
                     $this->logger->error("При объедиенении произошел конфликт, подробнее в conflicts.log");
                     $this->logger->conflict("https://{$_ENV["B24_DOMAIN"]}/crm/lead/merge/?id=" . implode(",",$result['DuplicateData']));
                     return;

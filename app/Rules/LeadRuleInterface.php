@@ -7,7 +7,7 @@ interface LeadRuleInterface
     /**
      * @param object $oldLead  старый лид (дубликат)
      * @param object $newLead  новый лид (триггерный)
-     * @return bool
+     * @return bool|null true - победил Старый, false - победил Новый, null - проверяем дальше
      */
-    public function preferOldLead(object $oldLead, object $newLead): bool;
+    public function decide(object $oldLead, object $newLead): ?bool;
 }
