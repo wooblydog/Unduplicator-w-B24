@@ -18,7 +18,7 @@ class ConflictWriter extends AbstractLogger
     protected function formatMessage(string $level, array $vars): array
     {
         return [
-            'ID' => $vars[0],
+            'ID' => $vars["MainLead"]["ID"],
             'timestamp' => date('c'),
             'message' => $vars,
             'attempts' => 1,
@@ -28,13 +28,14 @@ class ConflictWriter extends AbstractLogger
 
     public function addConflict(array $conflictData): void
     {
-        $data = $this->readJson();
-        $newMessage = $this->formatMessage("", $conflictData);
+        $fails = $this->readJson();
+        $newFail = $this->formatMessage("", $conflictData);
 
-        $matches = $this->checkMatches($data, $newMessage);
+        $matches = $this->checkMatches($fails, $newFail);
+
 
         if ($matches) {
-            $matches[] = $newMessage;
+            $matches[] = $newFail;
             $this->writeJsonArray($matches);
         }
     }
@@ -91,32 +92,31 @@ class ConflictWriter extends AbstractLogger
 
     private function checkMatches(string $jsonData, array $newMessage): bool|array
     {
-        return !str_contains($jsonData, $newMessage["ID"]) ? json_decode($jsonData, true) : false;
-    }
+        $existingData = json_decode($jsonData, true);
+        $searchId = $newMessage["ID"];
 
-
-    /**
-     * Удаляет записи с attempts >= $maxAttempts и возвращает их
-     */
-    public function cleanup(): array
-    {
-        $maxAttempts = 3;
-        $data = json_decode($this->readJson(), true);
-        $toLog = [];
-        $remaining = [];
-
-        foreach ($data as $item) {
-            if (($item['attempts'] ?? 0) >= $maxAttempts) {
-                $toLog[] = $item;
-            } else {
-                $remaining[] = $item;
+        foreach ($existingData as $item) {
+            if (in_array($searchId, $item['message']['DuplicateData'])) {
+                return false;
             }
         }
+        return $existingData;
+    }
 
-        if ($toLog !== []) {
-            $this->writeJsonArray($remaining);
+    public function removeById(string $id): bool
+    {
+        $data = json_decode($this->readJson(), true);
+        $initialCount = count($data);
+
+        $filtered = array_filter($data, function($item) use ($id) {
+            return $item['ID'] !== $id;
+        });
+
+        if (count($filtered) < $initialCount) {
+            $this->writeJsonArray(array_values($filtered));
+            return true;
         }
 
-        return $toLog;
+        return false;
     }
 }

@@ -13,6 +13,7 @@ $retryFailsService = new RetryFailsService();
 
 if (isset($_GET['retry'])){
     $retryFailsService->init();
+} else {
+    $leadController->handle($_GET);
 }
-$leadController->handle($_GET);
 

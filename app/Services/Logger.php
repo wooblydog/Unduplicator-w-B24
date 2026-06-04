@@ -6,6 +6,12 @@ class Logger extends AbstractLogger
 {
     protected string $defaultFileName = 'app.log';
     protected string $directorySuffix = 'logs';
+
+    public function __construct(string $logFile = null)
+    {
+        parent::__construct($logFile);
+    }
+
     private const LOG_TYPE = [
         'N' => 'NOTICE',
         'W' => 'WARNING',

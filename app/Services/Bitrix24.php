@@ -324,7 +324,7 @@ class Bitrix24
             'id' => $leadId
         ]);
         $res = $this->cUrl($method, $queryData);
-        return $res->result;
+        return $res->result ?? null;
     }
 
     /**

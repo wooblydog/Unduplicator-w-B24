@@ -17,7 +17,7 @@ class Lead
         $this->logger = new Logger();
     }
 
-    public function get(int $id): object
+    public function get(int $id): ?object
     {
         return $this->bitrix24->getLead($id);
     }

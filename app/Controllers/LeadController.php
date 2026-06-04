@@ -75,17 +75,13 @@ class LeadController
             $mainId = $result['MainLead']['ID'] ?? null;
 
             if (!empty($result)) {
-                dd($result);
                 $this->duplicatesCleaner->clearDuplicates($result);
-                dump($mergeResult = $this->lead->merge($result['DuplicateData']));
+                $mergeResult = $this->lead->merge($result['DuplicateData']);
                 $result['MainLead'] = (array) $this->lead->get($mainId); // Перед отправкой актуализируется инфа о резлультате слияния
 
                 $this->lead->sendDataToTable($this->selector->prepareDataForTableFromResult($result));
                 if ($mergeResult->result->STATUS == "CONFLICT"){
-                    $this->conflictWriter->addConflict($result['DuplicateData']);
-
-//                    $this->logger->error("При объедиенении произошел конфликт, подробнее в conflicts.log");
-//                    $this->logger->conflict("https://{$_ENV["B24_DOMAIN"]}/crm/lead/merge/?id=" . implode(",",$result['DuplicateData']));
+                    $this->conflictWriter->addConflict($result);
                     return;
                 }
             }
