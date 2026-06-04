@@ -7,6 +7,7 @@ use App\Models\Lead;
 use App\Rules\AppointmentRule;
 use App\Rules\CreatedLessThan24hRule;
 
+use App\Services\ConflictWriter;
 use App\Services\DuplicatesCleaner;
 use App\Services\Lead\LeadSelector;
 use App\Services\Logger;
@@ -18,6 +19,7 @@ class LeadController
     private LeadSelector $selector;
     private array $rules;
     private DuplicatesCleaner $duplicatesCleaner;
+    private ConflictWriter $conflictWriter;
 
     public function __construct()
     {
@@ -29,6 +31,7 @@ class LeadController
             new AppointmentRule(),
         ];
         $this->duplicatesCleaner = new DuplicatesCleaner();
+        $this->conflictWriter = new ConflictWriter();
     }
 
     public function handle(array $request): void
@@ -72,15 +75,17 @@ class LeadController
             $mainId = $result['MainLead']['ID'] ?? null;
 
             if (!empty($result)) {
+                dd($result);
                 $this->duplicatesCleaner->clearDuplicates($result);
                 dump($mergeResult = $this->lead->merge($result['DuplicateData']));
                 $result['MainLead'] = (array) $this->lead->get($mainId); // Перед отправкой актуализируется инфа о резлультате слияния
 
-//                $this->sendDataToTable($this->selector->prepareDataForTableFromResult($result));
+                $this->lead->sendDataToTable($this->selector->prepareDataForTableFromResult($result));
                 if ($mergeResult->result->STATUS == "CONFLICT"){
+                    $this->conflictWriter->addConflict($result['DuplicateData']);
 
-                    $this->logger->error("При объедиенении произошел конфликт, подробнее в conflicts.log");
-                    $this->logger->conflict("https://{$_ENV["B24_DOMAIN"]}/crm/lead/merge/?id=" . implode(",",$result['DuplicateData']));
+//                    $this->logger->error("При объедиенении произошел конфликт, подробнее в conflicts.log");
+//                    $this->logger->conflict("https://{$_ENV["B24_DOMAIN"]}/crm/lead/merge/?id=" . implode(",",$result['DuplicateData']));
                     return;
                 }
             }
@@ -104,43 +109,5 @@ class LeadController
         return array_filter($leads, function ($lead) {
             return $lead->STATUS_ID !== 'CONVERTED';
         });
-    }
-
-    private function sendDataToTable(array $preparedData): void
-    {
-        try {
-            $mainLeadGuid = $preparedData['MainLead']['Uid'];
-            $mainLeadId = $preparedData['MainLead']['Id'];
-
-            $this->logger->info("Отправка в таблицу", $preparedData);
-
-            if ($mainLeadGuid == "00000000-0000-0000-0000-000000000000" || empty($mainLeadGuid)) {
-                $this->logger->info("Пропускаю отправку данных в таблицу. MainLead $mainLeadId с пустым табличным идентификатором.");
-                return;
-            }
-
-            $jsonData = json_encode($preparedData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
-            $ch = curl_init();
-            curl_setopt_array($ch, [
-                CURLOPT_SSL_VERIFYPEER => false,
-                CURLOPT_POST => true,
-                CURLOPT_HTTPHEADER => ['Content-Type: application/json',],
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_URL => $_ENV["UD_TABLE_URL"],
-                CURLOPT_POSTFIELDS => $jsonData,
-            ]);
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
-            curl_close($ch);
-
-            if ($httpCode < 200 || $httpCode >= 300) {
-                $this->logger->error("Ошибка отправки данных в таблицу: $httpCode — $response");
-                return;
-            }
-        } catch (\Exception $ex) {
-            $this->logger->error("Вызвано исключение при отправки данных в таблицу: " . $ex->getMessage());
-        }
     }
 }

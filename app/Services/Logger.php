@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Services;
 
 class Logger extends AbstractLogger
@@ -17,6 +18,7 @@ class Logger extends AbstractLogger
     {
         $this->write('N', $vars);
     }
+
     public function info(...$vars): void
     {
         $this->write('I', $vars);
@@ -35,6 +37,7 @@ class Logger extends AbstractLogger
 
     public function conflict(...$vars): void
     {
+        parent::__construct('conflicts.log') ;
         $this->write('C', $vars);
     }
 
@@ -42,5 +45,15 @@ class Logger extends AbstractLogger
     {
         $json = json_encode($vars, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         return date("d.m.Y H:i:s") . " - " . self::LOG_TYPE[$level] . " - " . $json;
+    }
+
+    private function write(string $level, mixed $vars): void
+    {
+        if (file_exists($this->logPath) && filesize($this->logPath) > $this::MAX_FILE_SIZE) {
+            unlink($this->logPath);
+        }
+
+        $message = $this->formatMessage($level, $vars);
+        file_put_contents($this->logPath, $message . PHP_EOL, FILE_APPEND | LOCK_EX);
     }
 }

@@ -3,15 +3,18 @@
 namespace App\Models;
 
 use App\Services\Bitrix24;
+use App\Services\Logger;
 
 class Lead
 {
     private Bitrix24 $bitrix24;
     private mixed $protectedFields;
+    private Logger $logger;
 
     public function __construct()
     {
         $this->bitrix24 = new Bitrix24($_ENV["B24_DOMAIN"], $_ENV["B24_ID"], $_ENV["B24_HASH"]);
+        $this->logger = new Logger();
     }
 
     public function get(int $id): object
@@ -56,5 +59,43 @@ class Lead
     public function merge($ids)
     {
         return $this->bitrix24->mergeLeads($ids);
+    }
+
+    public function sendDataToTable(array $preparedData): void
+    {
+        try {
+            $mainLeadGuid = $preparedData['MainLead']['Uid'];
+            $mainLeadId = $preparedData['MainLead']['Id'];
+
+            $this->logger->info("Отправка в таблицу", $preparedData);
+
+            if ($mainLeadGuid == "00000000-0000-0000-0000-000000000000" || empty($mainLeadGuid)) {
+                $this->logger->info("Пропускаю отправку данных в таблицу. MainLead $mainLeadId с пустым табличным идентификатором.");
+                return;
+            }
+
+            $jsonData = json_encode($preparedData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+            $ch = curl_init();
+            curl_setopt_array($ch, [
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_POST => true,
+                CURLOPT_HTTPHEADER => ['Content-Type: application/json',],
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_URL => $_ENV["UD_TABLE_URL"],
+                CURLOPT_POSTFIELDS => $jsonData,
+            ]);
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+            curl_close($ch);
+
+            if ($httpCode < 200 || $httpCode >= 300) {
+                $this->logger->error("Ошибка отправки данных в таблицу: $httpCode — $response");
+                return;
+            }
+        } catch (\Exception $ex) {
+            $this->logger->error("Вызвано исключение при отправки данных в таблицу: " . $ex->getMessage());
+        }
     }
 }

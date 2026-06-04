@@ -1,16 +1,18 @@
 <?php
 require __DIR__ . '/vendor/autoload.php';
-require __DIR__ . '/app/config/testData.php';
 
 use App\Controllers\LeadController;
-use App\Services\ConflictWriter;
+use App\Services\RetryFailsService;
 use Dotenv\Dotenv;
 
 $dotenv = Dotenv::createImmutable(__DIR__);
 $dotenv->load();
 
 $leadController = new LeadController();
-$conflictWriter = new ConflictWriter();
+$retryFailsService = new RetryFailsService();
 
+if (isset($_GET['retry'])){
+    $retryFailsService->init();
+}
 $leadController->handle($_GET);
 
