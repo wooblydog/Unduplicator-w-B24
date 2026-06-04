@@ -4,9 +4,8 @@ namespace App\Controllers;
 
 use App\Models\Lead;
 
-use App\Rules\AppointmentTimeRule;
+use App\Rules\AppointmentRule;
 use App\Rules\CreatedLessThan24hRule;
-use App\Rules\HasAppointmentRule;
 
 use App\Services\DuplicatesCleaner;
 use App\Services\Lead\LeadSelector;
@@ -27,8 +26,7 @@ class LeadController
         $this->selector = new LeadSelector();
         $this->rules = [
             new CreatedLessThan24hRule(),
-            new HasAppointmentRule(),
-            new AppointmentTimeRule(),
+            new AppointmentRule(),
         ];
         $this->duplicatesCleaner = new DuplicatesCleaner();
     }

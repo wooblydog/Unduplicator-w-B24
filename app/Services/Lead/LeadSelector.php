@@ -32,46 +32,37 @@ class LeadSelector
 
         return $this->buildResult($bestLead, $newLead, $duplicates);
     }
+
     /**
-     * Находит лучший лид по количеству сработавших правил
+     * Находит лучший лид по количеству сработавших правил.
+     * Если ни один дубликат не наберет больше 0, тогда новый = основной
      */
     private function findBestLead(array $duplicates, object $newLead): object
     {
-        $validOldLeads = [];
+        $bestLead = $newLead;
+        $bestScore = 0;
 
         foreach ($duplicates as $oldLead) {
-            $oldLeadWins = false;
+            $totalScore = 0;
 
             foreach ($this->rules as $rule) {
-                $decision = $rule->decide($oldLead, $newLead);
-
-                if ($decision === true) {
-                    $oldLeadWins = true;
-                    break;
-                }
-                elseif ($decision === false) {
-                    break;
-                }
+                $score = $rule->getScore($oldLead);
+                $totalScore += $score;
             }
 
-            if ($oldLeadWins) {
-                $validOldLeads[] = $oldLead;
+            if ($totalScore > $bestScore) {
+                $bestScore = $totalScore;
+                $bestLead = $oldLead;
+            }
+            elseif ($totalScore === $bestScore && $totalScore > 0) {
+                $timeOld = strtotime($oldLead->DATE_CREATE ?? 'now');
+                $timeBest = strtotime($bestLead->DATE_CREATE ?? 'now');
+
+                if ($timeOld < $timeBest) $bestLead = $oldLead;
             }
         }
 
-        if (empty($validOldLeads)) {
-            return $newLead;
-        }
-
-        if (count($validOldLeads) === 1) {
-            return $validOldLeads[0];
-        }
-
-        usort($validOldLeads, function($a, $b) {
-            return strtotime($a->DATE_CREATE ?? 'now') <=> strtotime($b->DATE_CREATE ?? 'now');
-        });
-
-        return $validOldLeads[0];
+        return $bestLead;
     }
 
     private function buildResult(object $bestLead, object $newLead, array $duplicates): array
@@ -88,7 +79,7 @@ class LeadSelector
             $duplicateIDs[] = $item->ID ?? null;
         }
 
-        $fullBestLead =  $bestLead;
+        $fullBestLead = $this->leadRepo->get($bestLead->ID);
         return [
             'MainLead' => (array)$fullBestLead,
             'leadsToMerge' => array_column($toMerge, 'ID'),

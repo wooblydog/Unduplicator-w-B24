@@ -10,4 +10,10 @@ interface LeadRuleInterface
      * @return bool|null true - победил Старый, false - победил Новый, null - проверяем дальше
      */
     public function decide(object $oldLead, object $newLead): ?bool;
+
+    /**
+     * Возвращает количество баллов, которые получает старый лид.
+     * Может возвращать отрицательные значения для блокировки лида.
+     */
+    public function getScore(object $oldLead): int;
 }

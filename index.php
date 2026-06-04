@@ -1,5 +1,6 @@
 <?php
 require __DIR__ . '/vendor/autoload.php';
+require __DIR__ . '/app/config/testData.php';
 
 use App\Controllers\LeadController;
 use App\Services\ConflictWriter;

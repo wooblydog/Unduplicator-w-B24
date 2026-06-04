@@ -82,6 +82,30 @@ $pastApptNewLead = (object)[
     'UF_CRM_1668339568358' => '',
 ];
 
+$newRulesNewLead = (object)[
+    'TITLE' => 'Новый лид',
+    'STATUS_ID' => '1',
+    'DATE_CREATE' => $now,
+    'ID' => '3003',
+    'UF_CRM_1668339568358' => '',
+];
+
+$newRulesOldYoungLeadWOAppt = (object)[
+    'TITLE' => 'Старый молодой без записи лид',
+    'STATUS_ID' => '1',
+    'DATE_CREATE' => $now->modify('-2 hours')->format('Y-m-d\TH:i:sP'),
+    'ID' => '3004',
+    'UF_CRM_1668339568358' => '',
+];
+
+$newRulesOldYoungLeadWAppt = (object)[
+    'TITLE' => 'Старый молодой с записью лид',
+    'STATUS_ID' => '1',
+    'DATE_CREATE' => $now->modify('-1 hours')->format('Y-m-d\TH:i:sP'),
+    'ID' => '3005',
+    'UF_CRM_1668339568358' => $now->modify('+2 days')->format('Y-m-d\TH:i:sP'),
+];
+
 
 $pastApptTestSet = [
     "dup" => [
@@ -105,6 +129,14 @@ $hasApptTestSet = [
         $hasApptOldLeadWithoutDate,
     ],
     "new" => $hasApptNewLead,
+];
+
+$newRulesTestSet = [
+    "dup" => [
+        $newRulesOldYoungLeadWOAppt,
+        $newRulesOldYoungLeadWAppt
+    ],
+    "new" => $newRulesNewLead,
 ];
 
 $conflictRulesTestSet = [

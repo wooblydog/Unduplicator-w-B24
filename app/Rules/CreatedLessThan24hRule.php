@@ -21,4 +21,16 @@ class CreatedLessThan24hRule implements LeadRuleInterface
 
         return null;
     }
+
+    public function getScore(object $oldLead): int
+    {
+        $created = strtotime($oldLead->DATE_CREATE ?? 'now');
+        $now = time();
+
+        if (($now - $created) <= self::ONE_DAY_SECONDS) {
+            return 1;
+        }
+
+        return 0;
+    }
 }
